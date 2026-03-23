@@ -28,7 +28,7 @@ def load_data(custom_path=None):
     if custom_path:
         path = custom_path
     else:
-        path = os.path.join(os.path.dirname(__file__), 'context', '3months.txt')
+        path = os.path.join(os.path.dirname(__file__), '..', 'context', '3months.txt')
         
     print(f"[DATA] Loading data from: {path}")
     with open(path, 'r', encoding='utf-8') as f:
@@ -446,7 +446,7 @@ def free_chat_reply(question):
 # ═══════════════════════════════════════════════════════════
 # 8. HTTP SERVER (replaces n8n Webhook + Respond to Webhook)
 # ═══════════════════════════════════════════════════════════
-STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend_ui'))
 
 from urllib.parse import unquote
 

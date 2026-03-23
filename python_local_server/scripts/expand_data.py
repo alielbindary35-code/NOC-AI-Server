@@ -4,8 +4,8 @@ import os
 
 def expand_data():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    input_path = os.path.join(base_dir, 'context', '3months.txt')
-    output_path = os.path.join(base_dir, 'context', 'expanded_data.txt')
+    input_path = os.path.join(base_dir, '..', 'context', '3months.txt')
+    output_path = os.path.join(base_dir, '..', 'context', 'expanded_data.txt')
     
     print(f"Reading from {input_path}...")
     with open(input_path, 'r', encoding='utf-8') as f:
@@ -30,8 +30,8 @@ def expand_data():
     # Keep original records
     expanded.extend(records)
     
-    # Generate 4000 new randomized records to ensure rich data
-    for i in range(4000):
+    # Generate 10000 new randomized records to ensure rich data
+    for i in range(10000):
         # Pick a random template record to clone
         new_rec = dict(random.choice(records))
         

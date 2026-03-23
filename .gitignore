@@ -1,0 +1,8 @@
+# Ignore massively expanded test datasets to prevent git push errors
+python_local_server/context/mega_data.json
+python_local_server/context/expanded_data.txt
+python_local_server/context/expanded_data.csv
+
+# Ignore Python cache
+__pycache__/
+*.pyc
