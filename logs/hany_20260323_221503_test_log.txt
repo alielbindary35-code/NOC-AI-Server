@@ -1,0 +1,145 @@
+--- Local AI Test Log for hany ---
+Started at: 2026-03-23 22:15:03
+Data Source: E:\Project AI\UC1 Customer AI Chat Agent\alarm sample\AI agent workflow\producation\python_local_server\context\mega_data.json
+============================================================
+
+[22:15:21] QUESTION: how many power site active now ?
+--- API PARAMS SENT ---
+{"start": 0, "limit": 1000, "starttime": 1774216800000, "endtime": 1774303199000, "type": 1, "sitepoweroff": "Yes"}
+--- REPLY (Matches: 76746) ---
+📡 NOC Report — 2026-03-23
+   Period  : 00:00:00 → 23:59:59
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔎 Filters:
+  📂 Category  : POWER
+  ⚡ Power Off : Yes
+──────────────────────────────────────────────
+📊 TOTAL  : 76746 alarms
+──────────────────────────────────────────────
+⚡ By Alarm Type:
+  No Battery String             9380  ██████████
+  MW_BER_SD                     4888  █████░░░░░
+  Overlow Input Power of Opti…  3533  ████░░░░░░
+  MPLS_TUNNEL_RDI               3214  ███░░░░░░░
+  MPLS_TUNNEL_LOCV              3110  ███░░░░░░░
+  ETH_LOS                       2901  ███░░░░░░░
+  Cell RX Channel Interferenc…  1994  ██░░░░░░░░
+  UMTS Cell Max DL Power Mism…  1965  ██░░░░░░░░
+  Battery Temperature Sensor …  1513  ██░░░░░░░░
+  Phase L1 Under Voltage        1483  ██░░░░░░░░
+  Rectifier Fault               1475  ██░░░░░░░░
+  ETH_LINK_DOWN                 1422  ██░░░░░░░░
+  MW_LOF                        1403  █░░░░░░░░░
+  MW_RDI                        1365  █░░░░░░░░░
+  SERVICE_OUTAGE                1114  █░░░░░░░░░
+  Rectifier Protection          1004  █░░░░░░░░░
+  BD_STATUS                      998  █░░░░░░░░░
+  POWER_ALM                      996  █░░░░░░░░░
+  Phase L3 Over Voltage          983  █░░░░░░░░░
+  Local Cell Unusable            927  █░░░░░░░░░
+
+  ... and 120 more types
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+
+[22:15:37] Switched Data Source to: E:/Project AI/UC1 Customer AI Chat Agent/alarm sample/AI agent workflow/producation/python_local_server/context/5month.txt
+============================================================
+
+[22:15:54] QUESTION: how many power site active now ?
+--- API PARAMS SENT ---
+{"start": 0, "limit": 1000, "starttime": 1774216800000, "endtime": 1774303199000, "type": 1, "sitepoweroff": "Yes"}
+--- REPLY (Matches: 21) ---
+📡 NOC Report — 2026-03-23
+   Period  : 00:00:00 → 23:59:59
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔎 Filters:
+  📂 Category  : POWER
+  ⚡ Power Off : Yes
+──────────────────────────────────────────────
+📊 TOTAL  : 21 alarms
+──────────────────────────────────────────────
+⚡ By Alarm Type:
+  Phase L1 Under Voltage           2  ██████████
+  No Battery String                1  █████░░░░░
+  Rectifier Fault                  1  █████░░░░░
+  Cell RX Channel Interferenc…     1  █████░░░░░
+  Hybrid DG Failure                1  █████░░░░░
+  Phase L3 Overvoltage             1  █████░░░░░
+  Genset Generator Fault           1  █████░░░░░
+  Battery Temperature Sensor …     1  █████░░░░░
+  Grid Phase Voltage Imbalance     1  █████░░░░░
+  AC Voltage Imbalance             1  █████░░░░░
+  UMTS Cell Max DL Power Mism…     1  █████░░░░░
+  Rectifier Protection             1  █████░░░░░
+  main power failure of Recti…     1  █████░░░░░
+  Overlow Input Power of Opti…     1  █████░░░░░
+  POWER_ALM                        1  █████░░░░░
+  Power Module and Monitoring…     1  █████░░░░░
+  All Rectifiers Communicatio…     1  █████░░░░░
+  Battery LVD                      1  █████░░░░░
+  Site Ac Failure                  1  █████░░░░░
+  Phase L1 Overvoltage             1  █████░░░░░
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+
+[22:16:31] QUESTION: how many power in huawei
+--- API PARAMS SENT ---
+{"start": 0, "limit": 1000, "starttime": 1774216800000, "endtime": 1774303199000, "type": 1, "sitepoweroff": "Yes", "vendor": "Huawei"}
+--- REPLY (Matches: 19) ---
+📡 NOC Report — 2026-03-23
+   Period  : 00:00:00 → 23:59:59
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔎 Filters:
+  📂 Category  : POWER
+  ⚡ Power Off : Yes
+  🏭 Vendor    : Huawei
+──────────────────────────────────────────────
+📊 TOTAL  : 19 alarms
+──────────────────────────────────────────────
+⚡ By Alarm Type:
+  Phase L1 Under Voltage           2  ██████████
+  No Battery String                1  █████░░░░░
+  Rectifier Fault                  1  █████░░░░░
+  Cell RX Channel Interferenc…     1  █████░░░░░
+  Hybrid DG Failure                1  █████░░░░░
+  Phase L3 Overvoltage             1  █████░░░░░
+  Genset Generator Fault           1  █████░░░░░
+  Battery Temperature Sensor …     1  █████░░░░░
+  UMTS Cell Max DL Power Mism…     1  █████░░░░░
+  Rectifier Protection             1  █████░░░░░
+  main power failure of Recti…     1  █████░░░░░
+  Overlow Input Power of Opti…     1  █████░░░░░
+  POWER_ALM                        1  █████░░░░░
+  Power Module and Monitoring…     1  █████░░░░░
+  All Rectifiers Communicatio…     1  █████░░░░░
+  Battery LVD                      1  █████░░░░░
+  Site Ac Failure                  1  █████░░░░░
+  Phase L1 Overvoltage             1  █████░░░░░
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+
+[22:17:59] QUESTION: how many 2g site ?
+--- API PARAMS SENT ---
+{"start": 0, "limit": 1000, "starttime": 1774216800000, "endtime": 1774303199000, "type": 1, "networktype": "2G"}
+--- REPLY (Matches: 10) ---
+📡 NOC Report — 2026-03-23
+   Period  : 00:00:00 → 23:59:59
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔎 Filters:
+  📡 Network   : 2G
+──────────────────────────────────────────────
+📊 TOTAL  : 10 alarms
+──────────────────────────────────────────────
+📋 By Alarm Name:
+  Nokia 2G Cell Down               2  ██████████
+  Monitoring Device Hardware …     1  █████░░░░░
+  RF Unit VSWR Threshold Cros…     1  █████░░░░░
+  ESL Link Fault                   1  █████░░░░░
+  Path Fault                       1  █████░░░░░
+  Door Alarm                       1  █████░░░░░
+  SDH/SONET Tributary Remote …     1  █████░░░░░
+  SDH/SONET TU Alarm Indicati…     1  █████░░░░░
+  OML Fault                        1  █████░░░░░
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================================================
+

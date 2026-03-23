@@ -8,8 +8,10 @@ Then open NOC AI Assistant v4.1.html (pointing to localhost:5000)
 import sys, io
 # Fix Windows console encoding for Unicode output
 if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    if sys.stdout is not None:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    if sys.stderr is not None:
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json, re, time, os
@@ -229,14 +231,26 @@ def filter_records(records, params, locations):
     # sitedownflag
     if params['sitedownflag'] == 'Yes':
         before = len(result)
-        result = [r for r in result if r['sitedownflag'] == 'Yes']
-        steps.append(f"sitedownflag=Yes: {before} -> {len(result)}")
+        down_kw = ['oml', 'cpri', 'site down', 'link down', 'service outage', 'cell down', 'nodeb unav', 'enodeb unav', 'unusable', 'unavailable']
+        result = [
+            r for r in result 
+            if r.get('sitedownflag') == 'Yes' or 
+               (r.get('category', '').upper() == 'SITE_DOWN') or
+               any(k in str(r.get('alarmname', '')).lower() for k in down_kw)
+        ]
+        steps.append(f"sitedownflag/keywords=Yes: {before} -> {len(result)}")
 
     # sitepoweroff
     if params['sitepoweroff'] == 'Yes':
         before = len(result)
-        result = [r for r in result if r['sitepoweroff'] == 'Yes']
-        steps.append(f"sitepoweroff=Yes: {before} -> {len(result)}")
+        power_kw = ['power', 'mains', 'rectifier', 'battery', 'voltage', 'generator', 'dg', 'ac fail', 'dc low']
+        result = [
+            r for r in result 
+            if r.get('sitepoweroff') == 'Yes' or 
+               (r.get('category', '').upper() == 'POWER') or
+               any(k in str(r.get('alarmname', '')).lower() for k in power_kw)
+        ]
+        steps.append(f"sitepoweroff/keywords=Yes: {before} -> {len(result)}")
 
     # location
     if locations:

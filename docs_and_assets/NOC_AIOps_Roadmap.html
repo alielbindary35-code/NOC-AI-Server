@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOC AI Operations: Project Roadmap</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #cbd5e1;
+            --accent: #3b82f6;
+            --phase1: #10b981;
+            --phase2: #8b5cf6;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 15px;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 800;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .split-view {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 1000px) {
+            .split-view {
+                flex-direction: column;
+            }
+        }
+
+        .col {
+            flex: 1;
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 35px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .col.en {
+            direction: ltr;
+        }
+
+        .col.ar {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            text-align: right;
+        }
+
+        h2 {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            font-size: 1.6rem;
+            margin-top: 0;
+        }
+
+        .badge {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 1px;
+        }
+
+        .badge.p1 { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid var(--phase1); }
+        .badge.p2 { background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid var(--phase2); }
+
+        .feature-box {
+            background: rgba(0,0,0,0.25);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .feature-box:hover {
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.04);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .feature-box.current { border-left-color: var(--phase1); }
+        .col.ar .feature-box.current { border-left: none; border-right: 4px solid var(--phase1); }
+
+        .feature-box.future { border-left-color: var(--phase2); }
+        .col.ar .feature-box.future { border-left: none; border-right: 4px solid var(--phase2); }
+
+        .feature-box h3 {
+            margin-top: 0;
+            color: #fff;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 
+         * Crucial for preventing mixed language syntax scrambling!
+         * Wrapping English terms within RTL Arabic text.
+         */
+        .term {
+            color: #60a5fa;
+            font-weight: 600;
+            background: rgba(59, 130, 246, 0.15);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95em;
+            direction: ltr;     /* Forces LTR inside the span */
+            display: inline-block; /* Prevents punctuation wrapping */
+            letter-spacing: 0.5px;
+        }
+
+        p { color: var(--text-muted); font-size: 1.05rem; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>NOC AI Operations: Project Roadmap<br>الرؤية المستقبلية للمشروع</h1>
+        <p>A comprehensive overview of our current Agent architecture and the future evolution towards a fully autonomous predictive Machine Learning engine.</p>
+    </div>
+
+    <!-- PHASE 1: CURRENT WORK -->
+    <div class="split-view">
+        
+        <!-- ENGLISH SIDE -->
+        <div class="col en">
+            <h2><span class="badge p1">PHASE 1</span> Intelligent Orchestration</h2>
+            <p>Our current foundational stage. The AI acts as a sophisticated translation layer between natural language and structured backend APIs.</p>
+            
+            <div class="feature-box current">
+                <h3>🗣️ Natural Language Understanding</h3>
+                <p>The system receives the engineer's natural language, identifies intent, and dynamically formats it into an <span class="term">API Payload</span>.</p>
+            </div>
+            
+            <div class="feature-box current">
+                <h3>🧠 Deterministic Filtering</h3>
+                <p>Data is queried using robust <span class="term">Regex</span> and rule-based logic. It is accurate, predictable, but bound strictly to predefined parameters without learning context passively.</p>
+            </div>
+        </div>
+
+        <!-- ARABIC SIDE -->
+        <div class="col ar">
+            <h2>مرحلة الأساس <span class="badge p1">المرحلة الأولى</span></h2>
+            <p>اللي إحنا بنعمله في النسخة دي هو "مرحلة الأساس" لـ <span class="term" dir="ltr">AI Orchestration & Intent Recognition</span>، يعني بنخلي ذكاء اصطناعي يفهم كلام المهندسين ويحوّله لـ <span class="term" dir="ltr">API Queries</span> عشان يعرض داتا تفصيلية وحسابات فلترها صح 100%.</p>
+
+            <div class="feature-box current">
+                <h3>🗣️ التوجيه وفهم المشكلة</h3>
+                <p>يعمل نظامنا كمنسق أو <span class="term" dir="ltr">Orchestrator</span>. يستقبل كلام المهندس البشري ويحدد نية السؤال بالضبط.</p>
+            </div>
+
+            <div class="feature-box current">
+                <h3>🧠 الفلترة والصلابة البرمجية</h3>
+                <p>واجهة قوية ومبنية على بحث ذكي و <span class="term" dir="ltr">Regex</span> دقيق، جاهزة تتثبت وتُعتمد في الإدارة وتثبت كفاءتها في استخراج الأرقام اللحظية بنسبة نجاح كاملة.</p>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- PHASE 2: FUTURE VISION -->
+    <div class="split-view">
+        
+        <!-- ENGLISH SIDE -->
+        <div class="col en">
+            <h2><span class="badge p2">PHASE 2</span> Predictive Machine Learning</h2>
+            <p>The ultimate goal. Transitioning from rules-based parsing to a highly customized, trained ML model that natively understands complex and raw telecom environments.</p>
+            
+            <div class="feature-box future">
+                <h3>🧹 Data Cleaning & Labeling</h3>
+                <p>Ingesting 3–5 years of raw historical logs. Trimming noise, structuring symptoms, and isolating the definitive <span class="term">Root Cause</span> of incidents to build our dataset.</p>
+            </div>
+            
+            <div class="feature-box future">
+                <h3>🎓 Custom NLP Fine-Tuning</h3>
+                <p>Instead of hardcoding keywords, we train a customized Telecom <span class="term">LLM</span> (e.g., LLaMA or BERT). It natively learns local engineer slang without manual logic.</p>
+            </div>
+
+            <div class="feature-box future">
+                <h3>📈 Predictive Analytics (AIOps)</h3>
+                <p>The model analyzes live warning streams to forecast outages. This provides robust <span class="term">Predictive Analytics</span>, alerting teams up to 24 hours before a catastrophic site failure.</p>
+            </div>
+
+            <div class="feature-box future">
+                <h3>🔗 Alarm Correlation Engine</h3>
+                <p>Algorithms group 50+ symptomatic alerts into a single root issue via <span class="term">Alarm Correlation</span>. This eliminates operator fatigue drastically.</p>
+            </div>
+        </div>
+
+        <!-- ARABIC SIDE -->
+        <div class="col ar">
+            <h2>الوحش الحقيقي (AIOps) <span class="badge p2">المرحلة الثانية</span></h2>
+            <p>تفكيرك رايح للاتجاه الصح 100%، ده فعلاً اللي بيسموه في الصناعة <span class="term" dir="ltr">AIOps</span>. موضوع إننا ندرب موديل <span class="term" dir="ltr">Fine-tuning</span> بناءً على داتا سنين فاتت ده مشروع هيكسر الدنيا وهيمر بـ 4 مراحل ضخمة:</p>
+
+            <div class="feature-box future">
+                <h3>🧹 الـ Data Cleaning & Labeling</h3>
+                <p>هنجيب داتا 3 لـ 5 سنين مسحوبة كـ <span class="term" dir="ltr">CSV</span> خام مفيهاش أي معالجة، وندخلها على بايثون ينضّفها ويشيل الـ <span class="term" dir="ltr">Noise</span> ويحدد إيه الألارم الأساسي <span class="term" dir="ltr">Root Cause</span> وإيه الألارم التابع <span class="term" dir="ltr">Symptom</span>.</p>
+            </div>
+
+            <div class="feature-box future">
+                <h3>🎓 تدريب موديل NLP متخصص</h3>
+                <p>الموديل نفسه من كتر ما قرأ ملايين السطور هيفهم بطبيعته إن كل مجموعة الألارمات الفلانية معناها إن الكابينة وقعت باور، ويفهم اختصارات المهندسين اللوكال <span class="term" dir="ltr">Slang</span> اللامعقولة والخطيرة بدون أي <span class="term" dir="ltr">Regex</span>، معتمدين على تقنيات زي <span class="term" dir="ltr">Telecom BERT / Llama</span>.</p>
+            </div>
+
+            <div class="feature-box future">
+                <h3>📈 التحليل التنبؤي (Predictive Analysis)</h3>
+                <p>المشروع المستقبلي ده مش بس هيرد على أسئلتك.. ده هيقولك: "خلي بالك، سايت الإسكندرية رقم كذا بناءً على التدريب بتاعي، غالباً هيقع بكرا لأنه بيجيب نفس سلسلة الـ <span class="term" dir="ltr">Warning Alarms</span> اللي بتحصل دايماً قبل ما بيقع بـ 24 ساعة!".</p>
+            </div>
+
+            <div class="feature-box future">
+                <h3>🔗 ربط الألارمات (Alarm Correlation)</h3>
+                <p>هيتعلم إن فيه 50 ألارم بييجوا مع بعض بسبب مقطعية فايبر واحدة، فـ بدل ما يجيبلك لستة بـ 50 عطل، هيقولك: قطع فايبر في المكان الفلاني هو سبب الـ 50 ألارم دول <span class="term" dir="ltr">Auto-Clear & RCA</span>.</p>
+            </div>
+            
+            <p style="margin-top:25px; font-weight: bold; color: #60a5fa; font-size: 1.15rem;">لمّا تحب نبدأ في مشروع الـ Machine Learning ونرمي كود الـ Data Processing بالبايثون على <span class="term" dir="ltr">Google Colab</span>، أنا جاهز نمسكها من الصفر مع بعض خطوة خطوة لحد ما نخرّج موديل خاص بيك إنت!</p>
+
+        </div>
+        
+    </div>
+</div>
+
+</body>
+</html>
