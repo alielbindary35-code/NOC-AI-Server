@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOC AI Operations Center — Master Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#e60028;--blue:#2563eb;--green:#059669;--orange:#d97706;--purple:#7c3aed;--text:#0f172a;--text2:#475569;--text3:#94a3b8;--bg:#f0f4f8;--bg2:#ffffff;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 40px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;box-shadow:var(--shadow)}
+.logo{font-size:20px;font-weight:700;color:var(--accent)}.logo span{color:var(--text)}
+.hdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px rgba(5,150,105,.2)}
+.htitle{font-size:13px;color:var(--text2);font-weight:600;margin-left:4px}
+.hdate{margin-left:auto;font-size:12px;color:var(--text3)}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 40px;display:flex;gap:4px;overflow-x:auto}
+nav a{padding:10px 16px;font-size:12px;font-weight:500;color:var(--text2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+nav a:hover{color:var(--text)}
+nav a.active{color:var(--accent);border-bottom-color:var(--accent)}
+main{max-width:960px;margin:30px auto;padding:0 24px 60px}
+section{margin-bottom:32px}
+h1{font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px}
+h1 .sub{font-size:13px;font-weight:400;color:var(--text3);margin-left:8px}
+h2{font-size:16px;font-weight:700;color:var(--text);margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h2 .ico{margin-right:6px}
+h3{font-size:13.5px;font-weight:600;color:var(--text);margin:14px 0 6px}
+p,li{font-size:13.5px;color:var(--text2);line-height:1.7}
+ul,ol{padding-left:18px}
+li{margin-bottom:3px}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card h3{margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:4px}
+th{text-align:left;padding:8px 12px;font-weight:600;font-size:11.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg);border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+code{font-family:'Courier New',monospace;background:#f1f5f9;color:#1e293b;padding:2px 6px;border-radius:4px;font-size:12.5px}
+pre{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-family:'Courier New',monospace;font-size:12px;color:#334155;line-height:1.6;margin:8px 0}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge.done{background:rgba(5,150,105,.1);color:var(--green)}
+.badge.new{background:rgba(37,99,235,.1);color:var(--blue)}
+.badge.plan{background:rgba(217,119,6,.1);color:var(--orange)}
+.badge.wip{background:rgba(230,0,40,.08);color:var(--accent)}
+.infobox{border-left:3px solid var(--blue);background:rgba(37,99,235,.05);padding:12px 16px;border-radius:0 8px 8px 0;margin:10px 0;font-size:13px;color:var(--text2)}
+.warnbox{border-left:3px solid var(--orange);background:rgba(217,119,6,.05);padding:12px 16px;border-radius:0 8px 8px 0;margin:10px 0;font-size:13px;color:var(--text2)}
+.tag{display:inline-block;background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:4px;font-size:11.5px;color:var(--text2);margin:2px}
+.tier{display:flex;gap:10px;margin:10px 0}
+.tier-box{flex:1;padding:12px;border-radius:8px;border:1px solid var(--border)}
+.tier-box.t1{border-color:rgba(5,150,105,.3);background:rgba(5,150,105,.04)}
+.tier-box.t2{border-color:rgba(217,119,6,.3);background:rgba(217,119,6,.04)}
+.tier-box.t3{border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.04)}
+.tier-box h4{font-size:12px;font-weight:700;margin-bottom:6px}
+.t1 h4{color:var(--green)}.t2 h4{color:var(--orange)}.t3 h4{color:var(--purple)}
+.tier-box ul{font-size:12px;list-style:none;padding:0}
+.tier-box li{padding:3px 0;color:var(--text2)}
+.tier-box li::before{content:"▸ ";color:inherit}
+hr{border:none;border-top:1px solid var(--border);margin:24px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">e& <span>NOC</span></div>
+  <div class="hdot"></div>
+  <div class="htitle">AI Operations Center — Master Project</div>
+  <div class="hdate">Last updated: 2026-03-21</div>
+</header>
+<nav>
+  <a href="#infra" class="active">Infrastructure</a>
+  <a href="#files">Key Files</a>
+  <a href="#done">Completed Work</a>
+  <a href="#data">Data Map</a>
+  <a href="#plan">Advanced Plan</a>
+  <a href="#next">Next Steps</a>
+</nav>
+<main>
+
+<section id="infra">
+<h1>Infrastructure <span class="sub">e& Egypt NOC AI System</span></h1>
+<div class="card">
+<table>
+<tr><th>Component</th><th>Value</th><th>Status</th></tr>
+<tr><td><strong>n8n Webhook URL</strong></td><td><code>http://10.80.174.145:5678/webhook/chat</code></td><td><span class="badge done">● Live</span></td></tr>
+<tr><td><strong>Alarm API</strong></td><td><code>https://10.80.174.137:31943/.../query_alarm</code></td><td><span class="badge done">● Connected</span></td></tr>
+<tr><td><strong>PostgreSQL DB</strong></td><td>Table: <code>ai_alarm_mappings</code></td><td><span class="badge done">● Active</span></td></tr>
+<tr><td><strong>AI Model</strong></td><td>Ollama <code>qwen2.5:14b</code> (temperature=0)</td><td><span class="badge done">● Running</span></td></tr>
+<tr><td><strong>API Auth</strong></td><td>HTTP Basic Auth (credential ID: YqTrI8pe3Dx0bBFo)</td><td><span class="badge done">✓</span></td></tr>
+</table>
+</div>
+</section>
+
+<section id="files">
+<h2><span class="ico">📁</span>Key Files</h2>
+<div class="card">
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>NOC AI SQL Agent V3.4 Webhook.json</code></td><td>Main n8n workflow — import this in n8n</td></tr>
+<tr><td><code>NOC AI Dashboard v4.0.html</code></td><td>⭐ Main frontend dashboard</td></tr>
+<tr><td><code>e& Operations AI Assistant - Light v3_linkwith n8n.html</code></td><td>Previous v3.3 simple chat frontend</td></tr>
+<tr><td><code>context/3months.txt</code></td><td>3-month historical alarm data (JSON, 272K lines)</td></tr>
+<tr><td><code>context/custom_api_get_3.0.yaml</code></td><td>Full API spec (25+ parameters)</td></tr>
+<tr><td><code>context/alarm_fields_system_vs_label.txt</code></td><td>Field mapping: system name ↔ UI label</td></tr>
+<tr><td><code>context/API MAIN servic script.txt</code></td><td>Alias & normalization maps</td></tr>
+</table>
+</div>
+</section>
+
+<section id="done">
+<h2><span class="ico">✅</span>Completed Work (V3.x)</h2>
+
+<h3>Workflow — V3.4 Nodes</h3>
+<div class="card">
+<table>
+<tr><th>Node</th><th>What Was Fixed</th><th>Status</th></tr>
+<tr><td><strong>AI Agent</strong></td><td>Expanded to 17 fields. domain=Power blocked from prompt. 4 few-shot examples added.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Parse Agent Output</strong></td><td>Normalizes all 17 fields. Boolean Y/N flags, severity validation, sitepriority validation.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Resolve Location</strong></td><td>Fuzzy map: "alx"→"alex". Geo map: "delta"→"East Delta|West Delta".</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Build SQL</strong></td><td>SITE_DOWN → <code>__DIRECT__</code>. POWER → <code>WHERE category='POWER'</code> (alarm names from DB). Others → category+vendor filter.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Build Time Range</strong></td><td>Smart type: <code>type=1</code> for today, <code>type=3</code> for historical queries. Extended time keywords.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Build API Payload</strong></td><td>isDirectMode logic: sitedownflag/sitepoweroff only sent in direct mode. domain=Power blocked.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Normalize And Post Filter</strong></td><td>Removed sitedownflag/sitepoweroff post-filters (record values are 0/1 not "Yes"). Uses <code>||</code> not <code>??</code> for total.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Deduplicate And Format Reply</strong></td><td>Uses <code>r.tally</code> for real alarm counts. Bar-chart style reply. Separate site-down vs power breakdown.</td><td><span class="badge done">Done</span></td></tr>
+<tr><td><strong>Free Chat Handler</strong></td><td>Greeting/thanks/general questions handled without calling API.</td><td><span class="badge done">Done</span></td></tr>
+</table>
+</div>
+
+<h3>17 Extracted Parameters</h3>
+<div style="margin:8px 0">
+<span class="tag">intent</span><span class="tag">category</span><span class="tag">vendor</span>
+<span class="tag">region_input</span><span class="tag">networktype</span><span class="tag">severity</span>
+<span class="tag">sitedownflag</span><span class="tag">sitepoweroff</span><span class="tag">acknowledged</span>
+<span class="tag">isvip</span><span class="tag">domain</span><span class="tag">sitepriority</span>
+<span class="tag">city</span><span class="tag">isrootne</span><span class="tag">sitecode</span>
+<span class="tag">count_only</span><span class="tag">user_question</span>
+</div>
+
+<h3>Known API Peculiarities</h3>
+<div class="warnbox">
+<strong>sitepoweroff header doesn't work</strong> — using alarm names from DB instead.<br>
+<strong>API returns ~11 records per call</strong> despite limit=1000 — total is correct, records are a sample.<br>
+<strong>tally field</strong> = actual count per alarm type in the returned sample.
+</div>
+</section>
+
+<section id="data">
+<h2><span class="ico">📊</span>Data Map — From 3months.txt</h2>
+<div class="card">
+<table>
+<tr><th>Field</th><th>Sample Values</th><th>Intelligence Use</th></tr>
+<tr><td><code>diagnosestatus</code></td><td>No diagnosis / Diagnosing</td><td>Diagnosis tracking</td></tr>
+<tr><td><code>rcaresult</code> / <code>rcarulename</code></td><td>Normal / rule name</td><td>Root cause correlation</td></tr>
+<tr><td><code>transientresult</code></td><td>Normal / Transient SuppressEscl</td><td>Noise filtering</td></tr>
+<tr><td><code>flappingcount</code></td><td>0 / N</td><td>Recurring alarm detection</td></tr>
+<tr><td><code>continuance</code></td><td>00:07:34</td><td>MTTR (repair time)</td></tr>
+<tr><td><code>total_impacted_subscribers</code></td><td>0 / N</td><td>Business impact scoring</td></tr>
+<tr><td><code>isrootalarm</code> / <code>isrootne</code></td><td>NA / Yes / No</td><td>Root cause vs child alarm</td></tr>
+<tr><td><code>outageflag</code></td><td>Normal / Outage</td><td>Active outage detection</td></tr>
+<tr><td><code>ticketstatus</code></td><td>Uncreated / Suppressed / Open</td><td>TT tracking, escalation</td></tr>
+<tr><td><code>acknowledged</code></td><td>N / Y</td><td>Ops response rate</td></tr>
+<tr><td><code>sitepriority</code></td><td>P1 / P2 / P3</td><td>Priority site filtering</td></tr>
+<tr><td><code>city</code></td><td>ALEX2 / ZAGAZIK / LUXOR</td><td>Exact FM office filtering</td></tr>
+<tr><td><code>tally</code></td><td>1 / N</td><td>Real alarm count per type</td></tr>
+</table>
+</div>
+</section>
+
+<section id="plan">
+<h2><span class="ico">🚀</span>Advanced Intelligence Plan</h2>
+<div class="tier">
+<div class="tier-box t1">
+<h4>🟢 TIER 1 — Ready Now</h4>
+<ul>
+<li>Alarm aging queries</li>
+<li>Unacknowledged alarms</li>
+<li>P1/P2 priority filter</li>
+<li>Root alarm only</li>
+<li>Transient noise filter</li>
+</ul>
+</div>
+<div class="tier-box t2">
+<h4>🟡 TIER 2 — Needs DB</h4>
+<ul>
+<li>MTTR analysis per alarm type</li>
+<li>Flapping alarm detection</li>
+<li>Subscriber impact scoring</li>
+<li>No-TT alarm warnings</li>
+</ul>
+</div>
+<div class="tier-box t3">
+<h4>🔴 TIER 3 — AI Diagnosis</h4>
+<ul>
+<li>Site diagnosis engine</li>
+<li>Anomaly detection</li>
+<li>Predictive alerts</li>
+<li>Root cause AI analysis</li>
+</ul>
+</div>
+</div>
+
+<h3>Site Diagnosis Example (Tier 3)</h3>
+<pre>🔍 Diagnosis: Site ALX3256 (Alex - ALEX2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌳 Root Alarm  : NodeB Unavailable (3G)
+⚡ Cause        : Power failure detected (2 child alarms)
+🎫 TT Status   : Uncreated — ⚠️ No ticket raised yet!
+⏱️ Duration    : 4h 23m (since 10:15)
+📶 Impact      : 3 cells | ~1,200 subscribers
+💡 Suggestion  : Check power, escalate to FM if &gt; 6h</pre>
+</section>
+
+<section id="next">
+<h2><span class="ico">🔜</span>Next Steps</h2>
+<div class="card">
+<ol>
+<li><strong>Test Dashboard v4.0</strong> — import V3.4 + open HTML + press "Query Now"</li>
+<li><strong>Verify tally counts</strong> — check breakdown table shows 100 for Hybrid DG Failure</li>
+<li><strong>Add alarm aging API parameter</strong> — "show alarms older than X hours"</li>
+<li><strong>Load 3months.txt → PostgreSQL</strong> — enables MTTR, flapping, anomaly detection</li>
+<li><strong>Build site diagnosis node</strong> — multi-field correlation for Tier 3</li>
+</ol>
+</div>
+<div class="infobox">
+💡 <strong>Quick win:</strong> The 3-month data is already available. Loading it into PostgreSQL would enable historical MTTR and flapping queries without changing the frontend at all.
+</div>
+</section>
+
+</main>
+</body>
+</html>

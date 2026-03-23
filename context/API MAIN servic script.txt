@@ -1,0 +1,457 @@
+var start = _context.message.start || 0;
+var limit = _context.message.limit || 100;
+var start_time = _context.message.startt;
+var end_time = _context.message.end;
+var type = _context.message.type || 1;
+
+// ======================= INPUT PARAMETERS ==========================
+// mapped fields
+var severity            = _context.message.severity;
+var standardalarmseverity = _context.message.standardalarmseverity;
+var faultlevel          = _context.message.faultlevel;
+var sitedownflag        = _context.message.sitedownflag;
+var sitedownfault       = _context.message.sitedownfault;
+var isvip               = _context.message.isvip;
+var sitepoweroff        = _context.message.sitepoweroff;
+var acknowledged        = _context.message.acknowledged;
+var domain              = _context.message.domain;
+var vendor              = _context.message.vendor;
+var isrootne            = _context.message.isrootne;
+var filteridentifcation = _context.message.filteridentifcation;
+var diagnosestatus      = _context.message.diagnosestatus;
+
+// direct fields — geographic / text
+var sitecode  = _context.message.sitecode;
+var sitename  = _context.message.sitename;
+var city      = _context.message.city;
+var location  = _context.message.location;
+var county    = _context.message.county;
+var province  = _context.message.province;
+var office    = _context.message.office;    // NEW
+var region    = _context.message.region;    // NEW
+
+// direct fields — alarm identifiers
+var alarmname    = _context.message.alarmname;
+var rawalarmname = _context.message.rawalarmname;
+var alarmid      = _context.message.alarmid;
+var alertgroup   = _context.message.alertgroup;
+
+// direct fields — network / equipment
+var networktype  = _context.message.networktype;
+var emsname      = _context.message.emsname;
+var node         = _context.message.node;
+var devicetype   = _context.message.devicetype;
+var netype       = _context.message.netype;
+var sitepriority = _context.message.sitepriority;
+var isrootalarm  = _context.message.isrootalarm;
+
+// ======================= LOGS =====================================
+console.log("input startt = "        + start_time);
+console.log("input end = "           + end_time);
+console.log("input type = "          + type);
+console.log("input severity = "      + severity);
+console.log("input domain = "        + domain);
+console.log("input vendor = "        + vendor);
+console.log("input sitecode = "      + sitecode);
+console.log("input alarmname = "     + alarmname);
+console.log("input networktype = "   + networktype);
+console.log("input city = "          + city);
+console.log("input office = "        + office);
+console.log("input region = "        + region);
+
+// ======================= CONDITION ARRAY ===========================
+var conditionArray = [
+    {
+        id: 0,
+        field: "firstoccurrence",
+        operator: "between",
+        values: [String(start_time), String(end_time)]
+    }
+];
+
+// ======================= HELPERS ==================================
+
+// Normalize for alias map lookups: lowercase + trim + remove spaces/dashes/underscores.
+function normalizeText(value) {
+    if (value === undefined || value === null) { return ""; }
+    return String(value)
+        .toLowerCase()
+        .replace(/^\s+|\s+$/g, "")
+        .replace(/[\s\-_\/]+/g, "");
+}
+
+// Title Case: "new cairo" → "New Cairo"  |  "NEW CAIRO" → "New Cairo"
+// Used for geographic names (city, county, province, sitename, office, region, location).
+function toTitleCase(s) {
+    return String(s)
+        .toLowerCase()
+        .replace(/(?:^|[\s\-])(\S)/g, function(m) { return m.toUpperCase(); })
+        .replace(/^\s+|\s+$/g, "");
+}
+
+// Uppercase: "abc01" → "ABC01"
+// Used for code-type fields (sitecode, alarmid).
+function toUpperCaseTrim(s) {
+    return String(s).toUpperCase().replace(/^\s+|\s+$/g, "");
+}
+
+// addMappedCondition: split by |,; → normalize each part via aliasMap → push.
+function addMappedCondition(field, value, aliasMap) {
+    if (value === undefined || value === null || value === "") { return; }
+    var parts = String(value).split(/[|,;]+/)
+        .map(function(s) {
+            s = s.replace(/^\s+|\s+$/g, "");
+            var n = normalizeText(s);
+            return aliasMap[n] !== undefined ? aliasMap[n] : s;
+        })
+        .filter(function(s) { return s.length > 0; });
+    if (parts.length > 0) {
+        conditionArray.push({ id: conditionArray.length, field: field, operator: "in", values: parts });
+        console.log(field + " (mapped) => " + JSON.stringify(parts));
+    }
+}
+
+// addMultiCondition: split by |,; → apply normFn per part → push.
+// normFn can be: null (as-is), toTitleCase, toUpperCaseTrim.
+function addMultiCondition(field, value, normFn) {
+    if (value === undefined || value === null || value === "") { return; }
+    var parts = String(value).split(/[|,;]+/)
+        .map(function(s) {
+            s = s.replace(/^\s+|\s+$/g, "");
+            return normFn ? normFn(s) : s;
+        })
+        .filter(function(s) { return s.length > 0; });
+    if (parts.length > 0) {
+        conditionArray.push({ id: conditionArray.length, field: field, operator: "in", values: parts });
+        console.log(field + " => " + JSON.stringify(parts));
+    }
+}
+
+// Special severity handler.
+function addSeverityCondition(value) {
+    if (value === undefined || value === null || value === "") { return; }
+    var mappedValues;
+    if (Array.isArray(value)) {
+        mappedValues = value.map(String);
+    } else {
+        var n = normalizeText(value);
+        if (n === "cleared" || n === "clear") {
+            mappedValues = ["0"];
+        } else if (n === "uncleared" || n === "active" || n === "open") {
+            mappedValues = ["1", "2", "3", "4", "5"];
+        } else {
+            mappedValues = [String(value)];
+        }
+    }
+    conditionArray.push({ id: conditionArray.length, field: "severity", operator: "in", values: mappedValues });
+}
+
+// ======================= ALIAS MAPS ================================
+
+var domainAliasMap = {
+    "ran2g":"100","2g":"100","gsm":"100","geran":"100",
+    "ran3g":"101","3g":"101","umts":"101","wcdma":"101",
+    "ran4g":"102","4g":"102","lte":"102",
+    "ran":"103",
+    "ran5g":"105","5g":"105","nr":"105",
+    "tx":"120",
+    "mw":"121","microwave":"121",
+    "an":"122",
+    "ps":"200","cs":"201",
+    "transmission":"300",
+    "power":"500",
+    "oss":"1",
+    "others":"1000","other":"1000"
+};
+
+var vendorAliasMap = {
+    "huawei":"1001","ericsson":"2","cisco":"3","juniper":"4",
+    "nsn":"5","nokia":"5","alu":"6","alcatellucent":"6",
+    "zte":"7","nec":"8","moto":"9","motorola":"9",
+    "netact":"301","vertiv":"10"
+};
+
+var standardAlarmSeverityAliasMap = {
+    "unknown":"0","critical":"1","major":"2","minor":"3","warning":"4","indeterminate":"5"
+};
+
+var faultLevelAliasMap = {
+    "indeterminate":"1","warning":"2","minor":"3","major":"4","critical":"5","clear":"6","cleared":"6"
+};
+
+var yesNoAliasMap = {
+    "yes":"1","y":"1","true":"1","1":"1",
+    "no":"0","n":"0","false":"0","0":"0"
+};
+
+var acknowledgedAliasMap = {
+    "ack":"1","acknowledged":"1","yes":"1","y":"1","1":"1",
+    "unack":"0","unacknowledged":"0","no":"0","n":"0","0":"0"
+};
+
+var siteDownFaultAliasMap = {
+    "sitedown":"1","site":"1",
+    "powerfailure":"2","power":"2",
+    "celldown":"3","cell":"3",
+    "opticaldown":"4","optical":"4",
+    "electricaldown":"5","electrical":"5",
+    "equipmentremoval":"6","equipment":"6",
+    "hightemperature":"7","temperature":"7","temp":"7"
+};
+
+var diagnoseStatusAliasMap = {
+    "nodiagnosis":"0","none":"0",
+    "diagnosing":"1",
+    "diagnosissuccessful":"2","successful":"2","success":"2",
+    "diagnosisfailed":"3","failed":"3","fail":"3",
+    "diagnosisisbeingplanned":"4","planned":"4",
+    "diagnosisisrequired":"5","required":"5",
+    "diagnosiswascanceled":"6","canceled":"6","cancelled":"6",
+    "diagnosiscompletedsuccessfully":"7",
+    "diagnosiscompletedfailed":"8",
+    "diagnosistimedout":"10","timeout":"10",
+    "initializingdiagnosis":"1001","initializing":"1001"
+};
+
+var filterIdentificationAliasMap = {
+    "filtersuppressescl":"5","suppressescl":"5"
+};
+
+// networktype: 4g/4G/LTE/lte → "4G"
+var networkTypeAliasMap = {
+    "2g":"2G","gsm":"2G","geran":"2G",
+    "3g":"3G","umts":"3G","wcdma":"3G",
+    "4g":"4G","lte":"4G",
+    "5g":"5G","nr":"5G","newradio":"5G",
+    "tx":"TX",
+    "microwave":"Microwave","mw":"Microwave",
+    "ip":"IP","ptn":"PTN","wdm":"WDM","sdh":"SDH","otn":"OTN",
+    "ps":"PS","cs":"CS","vas":"VAS","iptv":"IPTV","dwdm":"DWDM",
+    "others":"Others","other":"Others","unknown":"Unknown",
+    "corenetwork":"Core Network",
+    "radioaccessnetwork":"Radio Access Network",
+    "transmissionnetwork":"Transmission Network",
+    "fixedaccessnetwork":"Fixed Access Network",
+    "fixedcorenetwork":"Fixed Core Network"
+};
+
+// sitepriority: critical/CRITICAL/Critical → "Critical"
+var sitePriorityAliasMap = {
+    "critical":"Critical","hotspot":"Hotspot",
+    "major":"Major","minor":"Minor",
+    "others":"Others","other":"Others",
+    "p1":"P1","p2":"P2","p3":"P3","p4":"P4"
+};
+
+// ======================= OPTIONAL CONDITIONS =======================
+// ──────────────────────────────────────────────────────────────────
+// GEOGRAPHIC / TEXT FIELDS → Title Case normalization
+// "alex" / "ALEX" / "ALeX" → "Alex" (or "New Cairo" / "new cairo" → "New Cairo")
+// ──────────────────────────────────────────────────────────────────
+addMultiCondition("sitename",  sitename,  toTitleCase);
+addMultiCondition("city",      city,      toTitleCase);
+addMultiCondition("location",  location,  toTitleCase);
+addMultiCondition("county",    county,    toTitleCase);
+addMultiCondition("province",  province,  toTitleCase);
+addMultiCondition("office",    office,    toTitleCase);   // NEW
+addMultiCondition("region",    region,    toTitleCase);   // NEW
+
+// ──────────────────────────────────────────────────────────────────
+// CODE FIELDS → UPPERCASE normalization
+// "abc01" / "ABC01" / "Abc01" → "ABC01"
+// ──────────────────────────────────────────────────────────────────
+addMultiCondition("sitecode",  sitecode,  toUpperCaseTrim);
+addMultiCondition("alarmid",   alarmid,   toUpperCaseTrim);
+
+// ──────────────────────────────────────────────────────────────────
+// ALARM NAME FIELDS → as-is (values come from ai_alarm_mappings DB — correct case)
+// ──────────────────────────────────────────────────────────────────
+addMultiCondition("alarmname",    alarmname,    null);
+addMultiCondition("rawalarmname", rawalarmname, null);
+addMultiCondition("alertgroup",   alertgroup,   null);
+
+// ──────────────────────────────────────────────────────────────────
+// ENUM FIELDS WITH ALIAS MAP → case-insensitive (4g→4G, lte→4G etc.)
+// ──────────────────────────────────────────────────────────────────
+addMappedCondition("networktype",  networktype,  networkTypeAliasMap);
+addMappedCondition("sitepriority", sitepriority, sitePriorityAliasMap);
+
+// ──────────────────────────────────────────────────────────────────
+// EQUIPMENT NAME FIELDS → as-is (exact device/NE name strings)
+// ──────────────────────────────────────────────────────────────────
+addMultiCondition("emsname",    emsname,    null);
+addMultiCondition("node",       node,       null);
+addMultiCondition("devicetype", devicetype, null);
+addMultiCondition("netype",     netype,     null);
+
+// ──────────────────────────────────────────────────────────────────
+// MAPPED ENUM FIELDS → all use normalizeText internally = fully case-insensitive
+// ──────────────────────────────────────────────────────────────────
+addSeverityCondition(severity);
+addMappedCondition("standardalarmseverity", standardalarmseverity, standardAlarmSeverityAliasMap);
+addMappedCondition("faultlevel",      faultlevel,      faultLevelAliasMap);
+addMappedCondition("sitedownflag",    sitedownflag,    yesNoAliasMap);
+addMappedCondition("sitedownfault",   sitedownfault,   siteDownFaultAliasMap);
+addMappedCondition("isvip",           isvip,           yesNoAliasMap);
+addMappedCondition("sitepoweroff",    sitepoweroff,    yesNoAliasMap);
+addMappedCondition("acknowledged",    acknowledged,    acknowledgedAliasMap);
+addMappedCondition("domain",          domain,          domainAliasMap);
+addMappedCondition("vendor",          vendor,          vendorAliasMap);
+addMappedCondition("isrootne",        isrootne,        yesNoAliasMap);
+addMappedCondition("isrootalarm",     isrootalarm,     yesNoAliasMap);
+addMappedCondition("filteridentifcation", filteridentifcation, filterIdentificationAliasMap);
+addMappedCondition("diagnosestatus",  diagnosestatus,  diagnoseStatusAliasMap);
+
+// ======================= FIX: expression with parentheses ==========
+// Matches hardcode style: "0 and (1) and (2) ..."
+var expression;
+if (conditionArray.length === 1) {
+    expression = "0";
+} else {
+    var otherIds = conditionArray.slice(1).map(function(item) {
+        return "(" + item.id + ")";
+    });
+    expression = "0 and " + otherIds.join(" and ");
+}
+
+console.log("conditionArray = " + JSON.stringify(conditionArray));
+console.log("expression = " + expression);
+
+// ======================= SORT CONDITION ============================
+var sortConditionArray = [
+    { lastoccurrence: "0" }
+];
+
+// ======================= BODY 1 (DATA QUERY) =======================
+var bodyForDataQuery = {
+    condition: conditionArray,
+    expression: expression,
+    sortCondition: sortConditionArray,
+    start: start,
+    end: limit,
+    type: String(type),
+
+    severity: severity,
+    standardalarmseverity: standardalarmseverity,
+    faultlevel: faultlevel,
+    sitecode: sitecode,
+    sitename: sitename,
+    city: city,
+    location: location,
+    county: county,
+    province: province,
+    office: office,
+    region: region,
+    alarmname: alarmname,
+    rawalarmname: rawalarmname,
+    alarmid: alarmid,
+    alertgroup: alertgroup,
+    sitedownflag: sitedownflag,
+    sitedownfault: sitedownfault,
+    isvip: isvip,
+    sitepoweroff: sitepoweroff,
+    acknowledged: acknowledged,
+    domain: domain,
+    networktype: networktype,
+    vendor: vendor,
+    emsname: emsname,
+    node: node,
+    devicetype: devicetype,
+    netype: netype,
+    sitepriority: sitepriority,
+    isrootne: isrootne,
+    isrootalarm: isrootalarm,
+    filteridentifcation: filteridentifcation,
+    diagnosestatus: diagnosestatus
+};
+
+// ======================= BODY 2 (TOTAL QUERY) ======================
+var bodyForTotalQuery = {
+    condition: conditionArray,
+    expression: expression,
+    start: start,
+    end: limit,
+    type: String(type),
+
+    severity: severity,
+    standardalarmseverity: standardalarmseverity,
+    faultlevel: faultlevel,
+    sitedownflag: sitedownflag,
+    sitedownfault: sitedownfault,
+    isvip: isvip,
+    sitepoweroff: sitepoweroff,
+    acknowledged: acknowledged,
+    domain: domain,
+    vendor: vendor,
+    isrootne: isrootne,
+    filteridentifcation: filteridentifcation,
+    diagnosestatus: diagnosestatus
+};
+
+console.log("bodyForDataQuery = "  + JSON.stringify(bodyForDataQuery));
+console.log("bodyForTotalQuery = " + JSON.stringify(bodyForTotalQuery));
+
+// ======================= EXECUTION =================================
+var response = ServiceInvoker.post(
+    "/adc-service/rest/v1/services/AlarmInterface/ict_alarm_interface/alarm_all_data_query",
+    bodyForDataQuery
+);
+
+var totalResponse = ServiceInvoker.post(
+    "/adc-service/rest/v1/services/AlarmInterface/ict_alarm_interface/alarm_all_total_query",
+    bodyForTotalQuery
+);
+
+if (response && totalResponse) {
+    response.total = totalResponse.total;
+} else {
+    if (!response) { throw new Error("Failed to get data from alarm_all_data_query"); }
+    if (!totalResponse) { throw new Error("Failed to get total from alarm_all_total_query"); }
+}
+
+return response;
+
+// ======================= PAGINATION HELPER =========================
+function service_invoker(startIndex) {
+    var body = {
+        condition: conditionArray,
+        expression: expression,
+        sortCondition: sortConditionArray,
+        start: startIndex,
+        end: 1000,
+        type: String(type),
+        severity: severity,
+        standardalarmseverity: standardalarmseverity,
+        faultlevel: faultlevel,
+        sitedownflag: sitedownflag,
+        sitedownfault: sitedownfault,
+        isvip: isvip,
+        sitepoweroff: sitepoweroff,
+        acknowledged: acknowledged,
+        domain: domain,
+        vendor: vendor,
+        isrootne: isrootne,
+        filteridentifcation: filteridentifcation,
+        diagnosestatus: diagnosestatus
+    };
+    return ServiceInvoker.post(
+        "/adc-service/rest/v1/services/AlarmInterface/ict_alarm_interface/alarm_all_data_query",
+        body
+    );
+}
+
+function query_all_records() {
+    var startIndex = 0;
+    var length = 0;
+    var allRecords = [];
+    var svcResp;
+    var results;
+    do {
+        svcResp = service_invoker(startIndex);
+        results = svcResp.results || svcResp.result || [];
+        allRecords = allRecords.concat(results);
+        startIndex += 1000;
+        length = results.length;
+    } while (length === 1000);
+    return allRecords;
+}

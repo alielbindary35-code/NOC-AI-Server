@@ -1,0 +1,662 @@
+{
+    "name": "NOC AI SQL Agent V3.4 Webhook",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "chat",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "a1b2c3d4-0001-0001-0001-000000000001",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                1232,
+                -368
+            ],
+            "webhookId": "noc-ai-agent-v32-webhook"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "assign-message-001",
+                            "name": "chatInput",
+                            "value": "={{$json.body.message}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "a1b2c3d4-0002-0002-0002-000000000002",
+            "name": "Extract Message",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1432,
+                -368
+            ]
+        },
+        {
+            "parameters": {
+                "options": {
+                    "systemMessage": "You are a NOC assistant. Extract info from the user message and output EXACTLY 17 key=value lines. Output only values — never write rule descriptions as values.\n\nintent=\ncategory=\nvendor=\nregion_input=\nnetworktype=\nseverity=\nsitedownflag=\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitepriority=\ncity=\nisrootne=\nsitecode=\ncount_only=\nuser_question=\n\nRules (apply silently, never copy these into output):\n- intent: alarm_count if asking how many/count; list_alarms if asking to show/list; unknown otherwise\n- category: SITE_DOWN if site down or down site; POWER if power alarm or power off; CELL_DOWN if cell; empty if unclear\n- vendor: Huawei | Nokia | ZTE | Ericsson | empty\n- region_input: copy raw location phrase exactly as user said | empty (e.g. alex, cairo, delta, sinai, upper egypt)\n- networktype: 2G | 3G | 4G | 5G | TX | MW | empty\n- severity: Critical | Major | Minor | Warning | Uncleared | Cleared | empty\n- sitedownflag: Yes if site down or down site; empty otherwise\n- sitepoweroff: Yes if power off or power outage; empty otherwise\n- acknowledged: Y | N | empty\n- isvip: Yes if user mentions VIP site; empty otherwise\n- domain: TX | MW | RAN | empty  (network domain ONLY — NOT for power alarms. Power alarms use sitepoweroff. Only set domain if user says TX/MW/RAN/microwave/transmission)\n- sitepriority: Critical | Hotspot | Major | Minor | empty (site importance level — NOT alarm severity)\n- city: exact FM office name if user mentions one (e.g. ALEX1, ALEX2, CAIRO, TANTA); empty otherwise\n- isrootne: Yes if user mentions root alarm or root NE; empty otherwise\n- sitecode: exact site code if mentioned (e.g. ALX3480) | empty\n- count_only: true if asking for count; false if asking to list\n- user_question: copy full original question\n\nCORRECT output for 'how many down site in alex':\nintent=alarm_count\ncategory=SITE_DOWN\nvendor=\nregion_input=alex\nnetworktype=\nseverity=\nsitedownflag=Yes\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitepriority=\ncity=\nisrootne=\nsitecode=\ncount_only=true\nuser_question=how many down site in alex\n\nCORRECT output for 'how many VIP site down in cairo?':\nintent=alarm_count\ncategory=SITE_DOWN\nvendor=\nregion_input=cairo\nnetworktype=\nseverity=\nsitedownflag=Yes\nsitepoweroff=\nacknowledged=\nisvip=Yes\ndomain=\nsitepriority=\ncity=\nisrootne=\nsitecode=\ncount_only=true\nuser_question=how many VIP site down in cairo?\n\nCORRECT output for 'how many TX alarms in delta?':\nintent=alarm_count\ncategory=\nvendor=\nregion_input=delta\nnetworktype=\nseverity=\nsitedownflag=\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=TX\nsitepriority=\ncity=\nisrootne=\nsitecode=\ncount_only=true\nuser_question=how many TX alarms in delta?\n\nCORRECT output for 'show 4G Nokia down sites in ALEX1':\nintent=list_alarms\ncategory=SITE_DOWN\nvendor=Nokia\nregion_input=\nnetworktype=4G\nseverity=\nsitedownflag=Yes\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitepriority=\ncity=ALEX1\nisrootne=\nsitecode=\ncount_only=false\nuser_question=show 4G Nokia down sites in ALEX1\n\nOutput exactly 17 lines only. Leave value empty if not mentioned."
+                }
+            },
+            "id": "a1b2c3d4-0003-0003-0003-000000000003",
+            "name": "AI Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.4,
+            "position": [
+                1640,
+                -368
+            ]
+        },
+        {
+            "parameters": {
+                "model": "qwen2.5:14b",
+                "options": {
+                    "temperature": 0
+                }
+            },
+            "id": "a1b2c3d4-0004-0004-0004-000000000004",
+            "name": "Ollama Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+            "typeVersion": 1,
+            "position": [
+                1432,
+                -144
+            ],
+            "credentials": {
+                "ollamaApi": {
+                    "id": "VwxCxN5WfcmbgnMK",
+                    "name": "Ollama account"
+                }
+            }
+        },
+        {
+            "parameters": {},
+            "id": "a1b2c3d4-0005-0005-0005-000000000005",
+            "name": "Window Buffer Memory",
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1,
+            "position": [
+                1640,
+                -144
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "let raw=$json.action_input||$json.output||\"\";\nif(!raw)throw new Error(\"No AI output\");\nif(typeof raw!==\"string\")raw=JSON.stringify(raw);\nraw=raw.trim();\nlet p;\ntry{\n  p=JSON.parse(raw);\n  if(typeof p===\"string\")p=JSON.parse(p);\n  const n={};\n  for(const[k,v] of Object.entries(p))n[k.toLowerCase().trim()]=v;\n  p=n;\n}catch(e){\n  p={};\n  for(const l of raw.split(\"\\n\").map(s=>s.trim()).filter(s=>s.indexOf(\"=\")>0)){\n    const i=l.indexOf(\"=\");\n    const k=l.slice(0,i).trim().toLowerCase();\n    const v=l.slice(i+1).trim();\n    if(k)p[k]=v;\n  }\n}\n\n// count_only\nconst co=String(p.count_only||\"\").toLowerCase();\np.count_only=co===\"true\"||co===\"1\";\n\n// sitedownflag\nconst sd=String(p.sitedownflag||\"\").toLowerCase();\np.sitedownflag=sd.startsWith(\"yes\")?\"Yes\":\"\";\n\n// sitepoweroff\nconst sp=String(p.sitepoweroff||\"\").toLowerCase();\np.sitepoweroff=sp.startsWith(\"yes\")?\"Yes\":\"\";\n\n// isvip\nconst iv=String(p.isvip||\"\").toLowerCase();\np.isvip=iv.startsWith(\"yes\")?\"Yes\":\"\";\n\n// isrootne\nconst irn=String(p.isrootne||\"\").toLowerCase();\np.isrootne=irn.startsWith(\"yes\")?\"Yes\":\"\";\n\n// category\np.category=String(p.category||\"\").toUpperCase().trim();\nif(![\"SITE_DOWN\",\"POWER\",\"CELL_DOWN\"].includes(p.category))p.category=\"\";\n\n// intent\nconst vi=[\"alarm_count\",\"list_alarms\",\"unknown\"];\np.intent=vi.includes(String(p.intent||\"\").toLowerCase())?String(p.intent).toLowerCase():\"unknown\";\n\n// severity\nconst sr=String(p.severity||\"\").toLowerCase().trim();\nconst ks=[\"critical\",\"major\",\"minor\",\"warning\",\"uncleared\",\"cleared\",\"active\",\"open\"];\np.severity=ks.includes(sr)?sr.charAt(0).toUpperCase()+sr.slice(1):\"\";\n\n// domain — pass as-is (alias map in API handles conversion)\np.domain=String(p.domain||\"\").trim();\n\n// sitepriority\nconst spr=String(p.sitepriority||\"\").toLowerCase().trim();\nconst spvals=[\"critical\",\"hotspot\",\"major\",\"minor\",\"others\"];\np.sitepriority=spvals.includes(spr)?spr.charAt(0).toUpperCase()+spr.slice(1):\"\";\n\n// city (FM office) — Title Case\np.city=p.city?String(p.city).trim():\"\";\n\n// vendor, sitecode — trim\np.vendor=String(p.vendor||\"\").trim();\np.sitecode=String(p.sitecode||\"\").trim();\n\nreturn[{json:p}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1864,
+                -368
+            ],
+            "id": "a1b2c3d4-0006-0006-0006-000000000006",
+            "name": "Parse Agent Output"
+        },
+        {
+            "parameters": {
+                "jsCode": "const j = $json;\nconst intent = String(j.intent || '').toLowerCase();\nconst cat = String(j.category || '').trim();\nconst isrootne = String(j.isrootne || '').trim();\nconst domain = String(j.domain || '').trim();\nconst vendor = String(j.vendor || '').trim();\nconst networktype = String(j.networktype || '').trim();\nconst sitedownflag = String(j.sitedownflag || '').trim();\nconst severity = String(j.severity || '').trim();\nconst isvip = String(j.isvip || '').trim();\nconst sitepriority = String(j.sitepriority || '').trim();\n\n// If ANY alarm-related field is populated, treat as alarm query\nconst hasAlarmContext = cat || isrootne === 'Yes' || domain || vendor || networktype || sitedownflag || severity || isvip || sitepriority;\n\n// Route to free chat ONLY if unknown intent AND no alarm context\nconst isFreechat = (intent === 'unknown') && !hasAlarmContext;\n\nreturn [{ json: { ...j, _is_freechat: isFreechat } }];"
+            },
+            "id": "aa000001-0000-0000-0000-000000000001",
+            "name": "Is Free Chat?",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2080,
+                -368
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+                    "conditions": [
+                        {
+                            "id": "freechat-flag-cond",
+                            "leftValue": "={{ $json._is_freechat }}",
+                            "rightValue": true,
+                            "operator": { "type": "boolean", "operation": "equals" }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "aa000001-1000-0000-0000-000000000001",
+            "name": "Route IF",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                2200,
+                -368
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const question = ($items(\"Parse Agent Output\")[0]?.json?.user_question || \"\").toLowerCase().trim();\nconst greetings = [\"hi\", \"hello\", \"hey\", \"howdy\", \"hola\", \"هاي\", \"سلام\", \"مرحبا\", \"اهلا\", \"أهلا\", \"ازيك\", \"ازيك؟\", \"هلو\", \"يا هلا\"];\nconst isGreeting = greetings.some(g => question === g || question.startsWith(g + \" \") || question.startsWith(g + \",\"));\nconst thanks = [\"thanks\", \"thank you\", \"شكرا\", \"شكراً\", \"تسلم\", \"مشكور\"];\nconst isThanks = thanks.some(t => question.includes(t));\nlet reply;\nif (isThanks) {\n  reply = \"😊 You're welcome! I'm always here to help with NOC alarm queries.\\n\\nFeel free to ask anything else about alarms, sites, or regions!\";\n} else if (isGreeting) {\n  reply = \"👋 Hello! I'm the NOC Operations AI Assistant for e& Egypt.\\n\\nI can help you with:\\n  📊 Alarm counts & breakdowns\\n  📍 Site down status by region\\n  ⚡ Power alarm queries\\n  🏢 FM Office / Region analysis\\n  📡 Vendor & network type filtering\\n\\nExample questions:\\n  'How many sites are down in Alex?'\\n  'Show Critical alarms in Cairo'\\n  'Count 4G Nokia power alarms'\\n  'How many down sites in Delta?'\";\n} else {\n  reply = \"🤖 I'm specialized in NOC alarm analysis.\\n\\nI can answer questions like:\\n  'How many sites are down today?'\\n  'Show power alarms in Sinai'\\n  'Count Major Nokia alarms in Delta'\\n  'How many Critical 4G alarms in Alex?'\\n\\nPlease ask an alarm-related question and I'll do my best!\";\n}\nreturn [{ json: { reply, total: 0, debug: { type: \"free_chat\", question, timestamp: new Date().toISOString() } } }];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2280,
+                -560
+            ],
+            "id": "aa000002-0000-0000-0000-000000000002",
+            "name": "Free Chat Handler"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Methods",
+                                "value": "POST, OPTIONS"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Headers",
+                                "value": "Content-Type"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "aa000003-0000-0000-0000-000000000003",
+            "name": "Respond to Webhook (Free)",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                2480,
+                -560
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const aiData = $input.first().json || {};\nlet normalizedInput = String(aiData.region_input || \"\").toLowerCase().trim();\n\nconst fuzzyMap = {\n  \"dleta\": \"delta\", \"alx\": \"alex\", \"alexndria\": \"alex\", \"cai\": \"cairo\",\n  \"sinii\": \"sinai\", \"uper\": \"upper egypt\", \"upper\": \"upper egypt\"\n};\nif (fuzzyMap[normalizedInput]) {\n  normalizedInput = fuzzyMap[normalizedInput];\n}\n\nconst geoMap = {\n  \"alex\": \"Alex\",\n  \"cairo\": \"Cairo\",\n  \"delta\": \"East Delta|West Delta\",\n  \"upper egypt\": \"North Upper|South Upper\",\n  \"sinai\": \"Sinai\",\n  \"الاسكندريه\": \"Alex\",\n  \"القاهره\": \"Cairo\",\n  \"الدلتا\": \"East Delta|West Delta\",\n  \"الصعيد\": \"North Upper|South Upper\",\n  \"سينا\": \"Sinai\",\n  \"سيناء\": \"Sinai\"\n};\n\nlet resolvedLocation = \"\";\nif (geoMap[normalizedInput]) {\n  resolvedLocation = geoMap[normalizedInput];\n} else if (normalizedInput && normalizedInput !== \"(empty)\") {\n  resolvedLocation = aiData.region_input; \n}\n\nreturn {\n  ...aiData,\n  location_resolved: resolvedLocation\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2300,
+                -368
+            ],
+            "id": "a1b2c3d4-0007-0007-0007-000000000007",
+            "name": "Resolve Location"
+        },
+        {
+            "parameters": {
+                "jsCode": "const cat=($json.category||\"\").toUpperCase();\nconst ven=$json.vendor||\"\";\nconst isrootne=($json.isrootne||\"\").trim();\nconst domain=($json.domain||\"\").trim();\nconst nw=($json.networktype||\"\").trim();\nconst sdf=($json.sitedownflag||\"\").trim();\nlet sql;\nif(cat===\"SITE_DOWN\"||sdf===\"Yes\"){\n  sql=\"SELECT '__DIRECT__' AS alarm_name\";\n}else if(cat===\"POWER\"){\n  if(ven) sql=`SELECT alarm_name FROM ai_alarm_mappings WHERE category = 'POWER' AND vendor = '${ven.replace(/'/g,\"''\")}' ORDER BY alarm_name;`;\n  else sql=\"SELECT alarm_name FROM ai_alarm_mappings WHERE category = 'POWER' ORDER BY alarm_name;\";\n}else if(isrootne===\"Yes\"||domain||nw||ven){\n  sql=\"SELECT '__DIRECT__' AS alarm_name\";\n}else{\n  sql=\"SELECT '__DIRECT__' AS alarm_name\";\n}\nreturn [{json:{sql, intent:$json.intent, category:$json.category, vendor:$json.vendor, location:$json.location, sub_locations:$json.sub_locations||[], fm_offices:$json.fm_offices, region_label:$json.region_label, networktype:$json.networktype, severity:$json.severity, sitedownflag:$json.sitedownflag, sitepoweroff:$json.sitepoweroff, acknowledged:$json.acknowledged, isvip:$json.isvip, domain:$json.domain, sitepriority:$json.sitepriority, city:$json.city, isrootne:$json.isrootne, sitecode:$json.sitecode, count_only:$json.count_only, user_question:$json.user_question}}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2524,
+                -368
+            ],
+            "id": "a1b2c3d4-0008-0008-0008-000000000008",
+            "name": "Build SQL"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "={{ $json.sql }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                1288,
+                0
+            ],
+            "id": "a1b2c3d4-0009-0009-0009-000000000009",
+            "name": "Get Alarm Names From Mapping",
+            "credentials": {
+                "postgres": {
+                    "id": "6yAH4lwLwnnx60hm",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const ctx=$items(\"Build SQL\")[0].json;\nconst q=(ctx.user_question||\"\").toLowerCase();\nconst now=new Date();\nlet s=new Date(now),e=new Date(now);\ns.setHours(0,0,0,0);e.setHours(23,59,59,999);\nif(q.includes(\"last 1 hour\")||q.includes(\"last hour\")){s=new Date(now.getTime()-3600000);e=new Date(now);}\nelse if(q.includes(\"last 6 hour\")){s=new Date(now.getTime()-21600000);e=new Date(now);}\nelse if(q.includes(\"last 12 hour\")){s=new Date(now.getTime()-43200000);e=new Date(now);}\nelse if(q.includes(\"last 24 hour\")){s=new Date(now.getTime()-86400000);e=new Date(now);}\nelse if(q.includes(\"yesterday\")){s=new Date(now);s.setDate(s.getDate()-1);s.setHours(0,0,0,0);e=new Date(now);e.setDate(e.getDate()-1);e.setHours(23,59,59,999);}\nelse if(q.includes(\"last 7 day\")||q.includes(\"last week\")){s=new Date(now.getTime()-604800000);e=new Date(now);}\nelse if(q.includes(\"last 2 day\")){s=new Date(now.getTime()-172800000);e=new Date(now);}\nelse if(q.includes(\"last 3 day\")){s=new Date(now.getTime()-259200000);e=new Date(now);}\n// type=1 active only; type=3 active+historical (for multi-day)\nconst isHistorical = q.includes(\"last\") || q.includes(\"yesterday\") || q.includes(\"week\");\nconst apiType = isHistorical ? 3 : 1;\nconst pad=n=>String(n).padStart(2,\"0\");\nconst fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;\nlet sdf=ctx.sitedownflag||\"\";let spo=ctx.sitepoweroff||\"\";\nif(ctx.category===\"SITE_DOWN\"&&!sdf)sdf=\"Yes\";\nif(ctx.category===\"POWER\"&&!spo)spo=\"Yes\";\nconst alevs=[\"critical\",\"major\",\"minor\",\"warning\"];\nconst clevs=[\"uncleared\",\"cleared\",\"active\",\"open\"];\nconst sr=(ctx.severity||\"\").toLowerCase().trim();\nconst stdSev=alevs.includes(sr)?sr.charAt(0).toUpperCase()+sr.slice(1):\"\";\nconst clSev=clevs.includes(sr)?sr.charAt(0).toUpperCase()+sr.slice(1):\"\";\nreturn[{json:{\n  starttime    : s.getTime(),\n  endtime      : e.getTime(),\n  start_local  : fmt(s),\n  end_local    : fmt(e),\n  start        : 0,\n  limit        : 1000,\n  type         : apiType,\n  intent       : ctx.intent,\n  category     : ctx.category,\n  vendor       : ctx.vendor,\n  location     : ctx.location,\n  sub_locations: ctx.sub_locations || [],\n  fm_offices   : ctx.fm_offices,\n  region_label : ctx.region_label,\n  networktype  : ctx.networktype,\n  standardalarmseverity: stdSev,\n  clearance_severity   : clSev,\n  sitedownflag : sdf,\n  sitepoweroff : spo,\n  acknowledged : ctx.acknowledged,\n  isvip        : ctx.isvip,\n  domain       : ctx.domain,\n  sitepriority : ctx.sitepriority,\n  city         : ctx.city,\n  isrootne     : ctx.isrootne,\n  sitecode     : ctx.sitecode,\n  count_only   : ctx.count_only,\n  user_question: ctx.user_question\n}}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1512,
+                0
+            ],
+            "id": "a1b2c3d4-0010-0010-0010-000000000010",
+            "name": "Build Time Range"
+        },
+        {
+            "parameters": {
+                "jsCode": "const aiData = $('Resolve Location').item.json;\nconst timeData = $('Build Time Range').item.json;\nconst sqlItems = $items(\"Get Alarm Names From Mapping\");\n\n// Separate direct vs named alarm mode\nconst allNames = sqlItems.map(i => i.json.alarm_name).filter(Boolean);\nconst isDirectMode = allNames.length === 0 || allNames.includes(\"__DIRECT__\");\nconst alarmNamesForApi = isDirectMode ? [] : allNames;\n\nlet basePayload = {\n    \"start\"    : timeData.start,\n    \"limit\"    : timeData.limit,\n    \"starttime\": timeData.starttime,\n    \"endtime\"  : timeData.endtime,\n    \"type\"     : timeData.type\n};\n\nfunction addIfValid(key, value) {\n    if (value && String(value).toLowerCase() !== \"(empty)\") {\n        basePayload[key] = value;\n    }\n}\n\n// ── Geographic ──\naddIfValid(\"location\", aiData.location_resolved);\naddIfValid(\"city\",     aiData.city);\n\n// ── Network / Equipment ──\naddIfValid(\"vendor\",      aiData.vendor);\naddIfValid(\"networktype\", aiData.networktype);\n\n// ── domain: only TX/MW/RAN — never Power ──\nconst domainClean = (aiData.domain || \"\").toUpperCase();\nif (domainClean && domainClean !== \"POWER\") addIfValid(\"domain\", aiData.domain);\n\n// ── Site flags: ONLY sent in direct mode (no alarmname) ──\n// When we have alarm names from DB, the alarmname filter is sufficient.\n// Sending sitedownflag/sitepoweroff alongside alarmname creates AND conflict.\nif (isDirectMode) {\n    addIfValid(\"sitedownflag\", aiData.sitedownflag || timeData.sitedownflag);\n    addIfValid(\"sitepoweroff\", aiData.sitepoweroff || timeData.sitepoweroff);\n}\n\n// ── Other filters — always ──\naddIfValid(\"isvip\",        aiData.isvip);\naddIfValid(\"sitepriority\", aiData.sitepriority);\naddIfValid(\"isrootne\",     aiData.isrootne);\naddIfValid(\"acknowledged\", aiData.acknowledged);\naddIfValid(\"sitecode\",     aiData.sitecode);\naddIfValid(\"standardalarmseverity\", timeData.standardalarmseverity);\naddIfValid(\"severity\",     timeData.clearance_severity);\n\n// ── Alarm names (only if NOT direct mode) ──\nif (alarmNamesForApi.length > 0) {\n    basePayload[\"alarmname\"] = alarmNamesForApi.join(\"|\");\n}\n\nconst isCountOnly = aiData.intent === 'alarm_count' || aiData.count_only === true;\n\nreturn [{\n  json: {\n    payload : basePayload,\n    metadata: { count_only: isCountOnly }\n  }\n}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1720,
+                0
+            ],
+            "id": "a1b2c3d4-0011-0011-0011-000000000011",
+            "name": "Build API Payload"
+        },
+        {
+            "parameters": {
+                "url": "https://10.80.174.137:31943/adc-intg/api/rest/v1/custom_api/custom_api/custom_api_get/query_alarms/query_alarm",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpBasicAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "start",
+                            "value": "={{ String($json.payload.start ?? 0) }}"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "={{ String($json.payload.limit ?? 1000) }}"
+                        },
+                        {
+                            "name": "type",
+                            "value": "={{ String($json.payload.type ?? 1) }}"
+                        },
+                        {
+                            "name": "starttime",
+                            "value": "={{ String($json.payload.starttime) }}"
+                        },
+                        {
+                            "name": "endtime",
+                            "value": "={{ String($json.payload.endtime) }}"
+                        },
+                        {
+                            "name": "alarmname",
+                            "value": "={{ $json.payload.alarmname ?? '' }}"
+                        },
+                        {
+                            "name": "location",
+                            "value": "={{ $json.payload.location ?? '' }}"
+                        },
+                        {
+                            "name": "sitedownflag",
+                            "value": "={{ $json.payload.sitedownflag ?? '' }}"
+                        },
+                        {
+                            "name": "sitepoweroff",
+                            "value": "={{ $json.payload.sitepoweroff ?? '' }}"
+                        },
+                        {
+                            "name": "networktype",
+                            "value": "={{ $json.payload.networktype ?? '' }}"
+                        },
+                        {
+                            "name": "vendor",
+                            "value": "={{ $json.payload.vendor ?? '' }}"
+                        },
+                        {
+                            "name": "standardalarmseverity",
+                            "value": "={{ $json.payload.standardalarmseverity ?? '' }}"
+                        },
+                        {
+                            "name": "severity",
+                            "value": "={{ $json.payload.severity ?? '' }}"
+                        },
+                        {
+                            "name": "acknowledged",
+                            "value": "={{ $json.payload.acknowledged ?? '' }}"
+                        },
+                        {
+                            "name": "isvip",
+                            "value": "={{ $json.payload.isvip ?? '' }}"
+                        },
+                        {
+                            "name": "domain",
+                            "value": "={{ $json.payload.domain ?? '' }}"
+                        },
+                        {
+                            "name": "sitecode",
+                            "value": "={{ $json.payload.sitecode ?? '' }}"
+                        },
+                        {
+                            "name": "city",
+                            "value": "={{ $json.payload.city ?? '' }}"
+                        },
+                        {
+                            "name": "sitepriority",
+                            "value": "={{ $json.payload.sitepriority ?? '' }}"
+                        },
+                        {
+                            "name": "isrootne",
+                            "value": "={{ $json.payload.isrootne ?? '' }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "allowUnauthorizedCerts": true
+                }
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                1944,
+                0
+            ],
+            "id": "a1b2c3d4-0012-0012-0012-000000000012",
+            "name": "Call Alarm API",
+            "credentials": {
+                "httpBasicAuth": {
+                    "id": "YqTrI8pe3Dx0bBFo",
+                    "name": "API credential"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const raw = $json;\nconst t   = $items(\"Build Time Range\")[0].json;\n\n// Parse records from API response (try all common field names)\nlet records = Array.isArray(raw.result)  ? raw.result\n            : Array.isArray(raw.data)    ? raw.data\n            : Array.isArray(raw.records) ? raw.records\n            : Array.isArray(raw.rows)    ? raw.rows : [];\n\n// Real total from API — use || so that 0 falls through to records.length\nconst apiRawTotal  = Number(raw.total || raw.count || raw.totalCount || raw.totalRecords || 0);\nconst apiRealTotal = Math.max(apiRawTotal, records.length);\n\n// ── POST-FILTERS ─────────────────────────────────────────────────────\n// NOTE: sitedownflag and sitepoweroff are NOT filtered here.\n// The API already filtered them via header — and record field values\n// use 1/0 not \"Yes\"/\"No\", so string comparison would drop all records.\n\n// Only post-filter fields that the API might not handle:\nif (t.vendor) {\n  records = records.filter(r =>\n    (r.vendor || \"\").toLowerCase().includes(t.vendor.toLowerCase())\n  );\n}\n\nif (t.networktype) {\n  records = records.filter(r =>\n    (r.networktype || \"\").toLowerCase().includes(t.networktype.toLowerCase())\n  );\n}\n\nif (t.acknowledged) {\n  records = records.filter(r =>\n    String(r.acknowledged || \"\") === String(t.acknowledged)\n  );\n}\n\nif (t.sitecode) {\n  records = records.filter(r =>\n    (r.sitecode || \"\").toUpperCase() === t.sitecode.toUpperCase()\n  );\n}\n\nreturn [{ json: { total: apiRealTotal, records } }];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2168,
+                0
+            ],
+            "id": "a1b2c3d4-0013-0013-0013-000000000013",
+            "name": "Normalize And Post Filter"
+        },
+        {
+            "parameters": {
+                "jsCode": "const all = $input.all();\nconst t = $items(\"Build Time Range\")[0].json;\nconst co = t.count_only === true;\nconst isSiteDown = (t.sitedownflag === \"Yes\" || t.category === \"SITE_DOWN\");\nconst isPower    = (t.category === \"POWER\");\n\nfunction uk(r) {\n  if (r.alarmid) return \"aid_\" + r.alarmid;\n  if (r.identifierfromprobe) return \"ifp_\" + r.identifierfromprobe;\n  if (r.identifier) return \"id_\" + r.identifier;\n  return \"cmp_\" + [r.sitecode||\"\",r.alarmname||r.rawalarmname||\"\",r.firstoccurrence||\"\",r.networktype||\"\",r.city||r.location||\"\"].join(\"_\");\n}\n\nlet apiTotal = 0;\nconst seen = new Set();\nconst unique = [];\n\nfor (const item of all) {\n  const rawT    = Number(item.json.total || 0);\n  const recs    = item.json.records || [];\n  const itemTot = Math.max(rawT, recs.length);\n  apiTotal += itemTot;\n  for (const r of recs) {\n    const k = uk(r);\n    if (!seen.has(k)) { seen.add(k); unique.push(r); }\n  }\n}\n\nconst dedupedTotal = unique.length;\nconst finalTotal   = co ? apiTotal : dedupedTotal;\n\n// ── Filter summary ────────────────────────────────────────\nconst fl = [];\nconst loc = t.region_label || t.location || t.location_resolved || \"\";\nif (loc)              fl.push(\"  📍 Location  : \" + loc);\nif (t.city)           fl.push(\"  🏢 FM Office : \" + t.city);\nif (t.category)       fl.push(\"  📂 Category  : \" + t.category);\nif (isSiteDown)       fl.push(\"  🔴 Site Down : Yes\");\nif (isPower)          fl.push(\"  ⚡ Power Off : Yes\");\nif (t.isvip===\"Yes\")  fl.push(\"  ⭐ VIP Only  : Yes\");\nif (t.vendor)         fl.push(\"  🏭 Vendor    : \" + t.vendor);\nif (t.networktype)    fl.push(\"  📡 Network   : \" + t.networktype);\nconst dom = (t.domain||\"\").toUpperCase();\nif (dom && dom !== \"POWER\") fl.push(\"  🌐 Domain    : \" + t.domain);\nif (t.sitepriority)   fl.push(\"  🎯 Priority  : \" + t.sitepriority);\nif (t.standardalarmseverity) fl.push(\"  🔔 Severity  : \" + t.standardalarmseverity);\nif (t.acknowledged)   fl.push(\"  ✅ Ack       : \" + t.acknowledged);\nif (t.sitecode)       fl.push(\"  🔍 Site Code : \" + t.sitecode);\nif (t.isrootne===\"Yes\") fl.push(\"  🌳 Root NE   : Yes\");\n\n// ── Helpers ───────────────────────────────────────────────\nconst W = 46;\nconst SEP  = \"━\".repeat(W);\nconst hr   = \"─\".repeat(W);\n\n// Build group from records using tally for real count\n// tally = actual occurrence count per alarm type from API\nfunction buildNameGroups(records) {\n  const g = {};\n  for (const r of records) {\n    const k = r.alarmname || r.rawalarmname || \"Unknown\";\n    // Use tally (API actual count) if available and > 1\n    const cnt = Number(r.tally || r.count || r.occurrences || 1);\n    g[k] = (g[k] || 0) + cnt;\n  }\n  return Object.entries(g).sort((a,b) => b[1]-a[1]);\n}\n\nfunction barLine(label, count, maxV) {\n  const lb = label.length > 28 ? label.slice(0,27)+\"…\" : label.padEnd(28,\" \");\n  const cn = String(count).padStart(5,\" \");\n  const barLen = maxV > 0 ? Math.round((count/maxV)*10) : 0;\n  const bar = \"█\".repeat(barLen) + \"░\".repeat(10-barLen);\n  return `  ${lb} ${cn}  ${bar}`;\n}\n\n// ── Build reply ───────────────────────────────────────────\nlet reply = `📡 NOC Report — ${t.start_local}\\n`;\nreply += `   Period  : ${t.start_local.slice(11)} → ${t.end_local.slice(11)}\\n`;\nreply += SEP + \"\\n\";\n\nif (fl.length) {\n  reply += \"🔎 Filters:\\n\" + fl.join(\"\\n\") + \"\\n\";\n  reply += hr + \"\\n\";\n}\n\nreply += `📊 TOTAL  : ${finalTotal} alarm${finalTotal !== 1 ? \"s\" : \"\"}\\n`;\nreply += hr + \"\\n\";\n\n// ── BREAKDOWN ─────────────────────────────────────────────\nif (unique.length > 0) {\n  const nameGroups = buildNameGroups(unique);\n  const groupTotal = nameGroups.reduce((s,[,v]) => s+v, 0);\n\n  if (isSiteDown && !co) {\n    // Site list mode\n    const top = Math.min(15, unique.length);\n    reply += `🏗️  Top ${top} Affected Sites:\\n\\n`;\n    reply += \"  #   Code           Tech   Vendor\\n\";\n    reply += \"  \" + \"─\".repeat(38) + \"\\n\";\n    for (let i=0; i<top; i++) {\n      const r = unique[i];\n      const n = String(i+1).padStart(2);\n      const sc = (r.sitecode||r.sitename||\"?\").padEnd(14);\n      const tc = (r.networktype||\"?\").padEnd(6);\n      const vn = (r.vendor||\"?\");\n      reply += `  ${n}. ${sc} ${tc}  ${vn}\\n`;\n    }\n    if (dedupedTotal > top) reply += `\\n  ... and ${dedupedTotal-top} more sites\\n`;\n\n  } else {\n    // Breakdown by alarm name (power + all other count queries)\n    const label = isPower ? \"⚡ By Alarm Type:\" : \"📋 By Alarm Name:\";\n    reply += label + \"\\n\";\n    const maxV = nameGroups[0]?.[1] || 1;\n    for (const [k,v] of nameGroups) reply += barLine(k, v, maxV) + \"\\n\";\n\n    if (apiTotal > groupTotal) {\n      reply += `\\n  ℹ️  Based on ${unique.length} of ${apiTotal} records\\n`;\n    }\n  }\n}\n\nreply += SEP;\n\nreturn [{ json: { reply, total: finalTotal, api_total: apiTotal, deduped_total: dedupedTotal } }];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2392,
+                0
+            ],
+            "id": "a1b2c3d4-0014-0014-0014-000000000014",
+            "name": "Deduplicate And Format Reply"
+        },
+        {
+            "parameters": {
+                "jsCode": "const aiOutput = $('Resolve Location').item.json || {}; \nconst sqlQuery = $('Build SQL').item.json ? $('Build SQL').item.json.sql : \"No SQL generated\";\nconst sqlResults = $items(\"Get Alarm Names From Mapping\").map(i => i.json);\nconst apiPayload = $('Build API Payload').item.json ? $('Build API Payload').item.json.payload : {};\nconst finalCount = $items(\"Deduplicate And Format Reply\").length;\n\nlet originalApiCount = 0;\ntry {\n  originalApiCount = $items(\"Normalize And Post Filter\").length;\n} catch(e) {}\n\nconst debugData = {\n  \"1_user_request\": {\n    \"question\": aiOutput.user_question || \"unknown\",\n    \"intent_interpreted\": aiOutput.intent || \"unknown\"\n  },\n  \"2_ai_extraction\": {\n    \"category\": aiOutput.category,\n    \"vendor\": aiOutput.vendor,\n    \"technology\": aiOutput.technology,\n    \"networktype\": aiOutput.networktype,\n    \"filters\": {\n      \"isvip\": aiOutput.isvip,\n      \"sitedownflag\": aiOutput.sitedownflag,\n      \"severity\": aiOutput.severity\n    }\n  },\n  \"3_geography\": {\n    \"raw_input\": aiOutput.region_input,\n    \"resolved_pipe_string\": aiOutput.location_resolved\n  },\n  \"4_database_mapping\": {\n    \"sql_executed\": sqlQuery,\n    \"alarms_found_count\": sqlResults.length,\n    \"alarm_names\": sqlResults.map(r => r.alarm_name)\n  },\n  \"5_api_execution\": {\n    \"actual_payload_sent\": apiPayload,\n    \"raw_records_returned\": originalApiCount\n  },\n  \"6_post_processing\": {\n    \"deduplicated_final_count\": finalCount\n  }\n};\n\nconst respItems = $items(\"Deduplicate And Format Reply\");\nlet finalReplyMsg = \"Done\";\nif (respItems.length > 0 && respItems[0].json && respItems[0].json.reply) {\n    finalReplyMsg = respItems[0].json.reply;\n}\n\nreturn {\n    reply: finalReplyMsg,\n    total: finalCount,\n    debug: debugData\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2608,
+                0
+            ],
+            "id": "aa000004-0000-0000-0000-000000000004",
+            "name": "Build Debug Response"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Methods",
+                                "value": "POST, OPTIONS"
+                            },
+                            {
+                                "name": "Access-Control-Allow-Headers",
+                                "value": "Content-Type"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "a1b2c3d4-0015-0015-0015-000000000015",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                2824,
+                0
+            ]
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Message": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Ollama Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Window Buffer Memory": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Agent Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Agent Output": {
+            "main": [
+                [
+                    {
+                        "node": "Is Free Chat?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Free Chat?": {
+            "main": [
+                [
+                    {
+                        "node": "Route IF",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route IF": {
+            "main": [
+                [
+                    {
+                        "node": "Free Chat Handler",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Resolve Location",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Free Chat Handler": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook (Free)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolve Location": {
+            "main": [
+                [
+                    {
+                        "node": "Build SQL",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build SQL": {
+            "main": [
+                [
+                    {
+                        "node": "Get Alarm Names From Mapping",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Alarm Names From Mapping": {
+            "main": [
+                [
+                    {
+                        "node": "Build Time Range",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Time Range": {
+            "main": [
+                [
+                    {
+                        "node": "Build API Payload",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build API Payload": {
+            "main": [
+                [
+                    {
+                        "node": "Call Alarm API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Call Alarm API": {
+            "main": [
+                [
+                    {
+                        "node": "Normalize And Post Filter",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Normalize And Post Filter": {
+            "main": [
+                [
+                    {
+                        "node": "Deduplicate And Format Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Deduplicate And Format Reply": {
+            "main": [
+                [
+                    {
+                        "node": "Build Debug Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Debug Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1",
+        "binaryMode": "separate",
+        "availableInMCP": false
+    },
+    "versionId": "noc-ai-v32-webhook-003",
+    "meta": {
+        "instanceId": "ff02306f19a73e963e5e9909ae18cd9bc7c89315f1ee53cca015f45d73dd622b"
+    },
+    "id": "NOCAISQLAgentV32Webhook",
+    "tags": []
+}

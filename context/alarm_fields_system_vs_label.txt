@@ -1,0 +1,31 @@
+System Field	Label (UI / Report Name)	Works Directly	Needs Mapping	Comments	Result check On OWS
+Severity	Cleared Clearence Status	❌	✅	Mapped: Cleared→0 , Uncleared→1-5	Green is correct name
+standardalarmseverity	Alarm Severity Level	⚠️	Possible	Critical/Major/Minor/Warning or numeric	Green is correct name
+faultlevel	Fault Level	⚠️	Possible	Sometimes enum or numeric	
+sitecode	Site Code ID	✅	❌	Direct string	Green is correct name
+sitename	Site Name	✅	❌	Direct string	
+city	FM Office	✅	❌	Operations office	No content to search
+location	Region	✅	❌	Region name	No content to search
+county	County	✅	❌	Geographic field	No content to search
+province	Province	✅	❌	Geographic field	No content to search
+alarmname	Alarm Name	✅	❌	Most common alarm filter	done right
+rawalarmname	Raw Alarm Name	✅	❌	Original alarm string	done right
+alarmid	Alarm ID	⚠️	Possible	May be numeric ID	
+alertgroup	Alarm Group	⚠️	Possible	Depends on EMS config	
+sitedownflag	Site Down Flag	⚠️	Possible	Yes/No or 1/0	Green is correct name
+sitedownfault	Site Down Fault	⚠️	Possible	Boolean style	
+isvip	VIP Site	⚠️	Possible	Yes/No	Green is correct name
+sitepoweroff	Site Power-off	⚠️	Possible	Yes/No	Green is correct name
+acknowledged	Acknowledged Status	⚠️	Possible	Ack / Unack	Green is correct name
+domain	Domain	✅	❌	Wireless/Transmission etc	
+networktype	Network Type	✅	❌	2G/3G/4G/5G	
+vendor	Vendor	✅	❌	Huawei/Ericsson etc	
+emsname	EMS Name	⚠️	Possible	Depends on NMS	
+node	Node	⚠️	Possible	Network node	Not found on OWS
+devicetype	Device Type	⚠️	Possible	Enum device type	
+netype	NE Type	⚠️	Possible	Enum	
+sitepriority	Site Priority	⚠️	Possible	VIP/High/Normal	
+isrootne	Is Root NE	⚠️	Possible	Boolean	Green is correct name
+isrootalarm	Root Alarm	⚠️	Possible	Boolean	Not found on OWS
+filteridentifcation	Filter Identification	❓	Unknown	Internal filtering field	
+diagnosestatus	Diagnosis Status	⚠️	Possible	Alarm diagnosis result	

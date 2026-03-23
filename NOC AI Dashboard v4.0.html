@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>e& NOC AI Operations Center v4.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --accent:#e60028;--accent2:#cc0022;--accentg:rgba(230,0,40,.08);
+  --blue:#2563eb;--green:#059669;--orange:#d97706;--purple:#7c3aed;--cyan:#0891b2;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --bg:#f0f4f8;--bg2:#fff;--bg3:#f8fafc;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --shadow:0 1px 3px rgba(0,0,0,.08);--shadow2:0 4px 12px rgba(0,0,0,.08);
+  --mono:'JetBrains Mono','Courier New',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;box-shadow:var(--shadow);z-index:100}
+.logo{font-size:19px;font-weight:700;color:var(--accent)}.logo span{color:var(--text)}
+.topbar-title{font-size:12px;color:var(--text2);font-weight:500;padding-left:12px;border-left:2px solid var(--border2)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.tab-bar{display:flex;gap:3px;background:var(--bg);border-radius:7px;padding:3px}
+.tab{padding:5px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);border:none;background:transparent;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--bg2);color:var(--accent);font-weight:600;box-shadow:var(--shadow)}
+.dbg-master-btn{padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg);color:var(--text2);transition:all .15s}
+.dbg-master-btn.on{border-color:var(--blue);color:var(--blue);background:rgba(37,99,235,.07)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px rgba(5,150,105,.2);animation:pulse 2.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-txt{font-size:11.5px;color:var(--text2)}
+
+/* MAIN LAYOUT */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sb-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;padding:11px 13px 3px}
+.sb-hdr{display:flex;align-items:center;gap:7px;padding:7px 13px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);transition:all .12s}
+.sb-hdr:hover{background:var(--bg);color:var(--text)}
+.sb-hdr.open{color:var(--accent)}
+.sb-ico{font-size:13px;width:16px;text-align:center}
+.sb-arr{font-size:9px;color:var(--text3);margin-left:auto;transition:transform .2s}
+.sb-hdr.open .sb-arr{transform:rotate(90deg)}
+.sb-body{display:none}.sb-body.show{display:block}
+.qbtn{display:block;width:100%;text-align:left;padding:6px 13px 6px 32px;font-size:11.5px;color:var(--text2);background:transparent;border:none;cursor:pointer;transition:all .12s}
+.qbtn:hover{background:var(--bg);color:var(--accent)}
+.new-b{font-size:9px;padding:1px 5px;border-radius:3px;margin-left:auto;background:rgba(37,99,235,.1);color:var(--blue);font-weight:700}
+
+/* CONTENT */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#view-dash{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+#view-dash::-webkit-scrollbar{width:4px}
+#view-dash::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:14px 16px;box-shadow:var(--shadow);position:relative}
+.stat-card.red{border-top:3px solid var(--accent)}
+.stat-card.orange{border-top:3px solid var(--orange)}
+.stat-card.blue{border-top:3px solid var(--blue)}
+.stat-card.purple{border-top:3px solid var(--purple)}
+.sc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.sc-ico{font-size:20px}
+.sc-badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600}
+.b-r{background:rgba(230,0,40,.08);color:var(--accent)}
+.b-o{background:rgba(217,119,6,.1);color:var(--orange)}
+.b-b{background:rgba(37,99,235,.1);color:var(--blue)}
+.b-p{background:rgba(124,58,237,.1);color:var(--purple)}
+.sc-val{font-size:28px;font-weight:700;font-family:var(--mono);color:var(--text);line-height:1}
+.sc-val.loading{color:var(--text3);font-size:20px}
+.sc-val.err{color:var(--accent);font-size:18px}
+.sc-label{font-size:12px;font-weight:600;color:var(--text2);margin-top:4px}
+.sc-sub{font-size:10.5px;color:var(--text3);margin-top:2px}
+/* per-card debug */
+.sc-dbg-btn{position:absolute;bottom:8px;right:8px;font-size:9.5px;padding:2px 7px;border-radius:4px;background:transparent;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;display:none}
+.sc-dbg-btn:hover{border-color:var(--blue);color:var(--blue)}
+.sc-dbg-btn.on{border-color:var(--blue);color:var(--blue);background:rgba(37,99,235,.06)}
+.sc-dbg-panel{margin-top:8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;font-family:var(--mono);font-size:10.5px;color:#475569;line-height:1.6;white-space:pre;overflow-x:auto;display:none}
+
+/* PANELS & CHARTS */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:14px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;position:relative}
+.panel-top{display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:12.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
+.panel-dbg-btn{font-size:9.5px;padding:2px 8px;border-radius:4px;background:transparent;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;display:none}
+.panel-dbg-btn:hover{border-color:var(--blue);color:var(--blue)}
+.panel-dbg-btn.on{border-color:var(--blue);color:var(--blue);background:rgba(37,99,235,.06)}
+.panel-dbg-panel{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;font-family:var(--mono);font-size:10.5px;color:#475569;line-height:1.6;white-space:pre;overflow-x:auto;display:none;max-height:180px;overflow-y:auto}
+.chart-wrap{position:relative;height:165px}
+
+/* CHIPS */
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all .13s}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accentg)}
+.chip.red{border-color:rgba(230,0,40,.3);color:var(--accent);background:var(--accentg)}
+.chip.blue{border-color:rgba(37,99,235,.3);color:var(--blue);background:rgba(37,99,235,.06)}
+
+/* ACTION BAR */
+.action-bar{display:flex;align-items:center;gap:10px}
+.load-btn{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+.load-btn:hover{background:var(--accent2);box-shadow:0 3px 10px rgba(230,0,40,.3)}
+.load-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.time-lbl{font-size:11.5px;color:var(--text3)}
+.prog-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;display:none;flex:1}
+.prog-fill{height:100%;background:var(--accent);width:0%;transition:width .3s}
+
+/* LOADING SPINNER */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* CHAT VIEW */
+#view-chat{display:none;flex:1;flex-direction:column;overflow:hidden}
+.messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:11px}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.welcome-chat{text-align:center;padding:50px 40px;animation:fi .4s ease}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.welcome-chat .wico{font-size:44px;margin-bottom:12px}
+.welcome-chat h2{font-size:20px;font-weight:700;margin-bottom:7px}
+.welcome-chat h2 .r{color:var(--accent)}
+.welcome-chat p{color:var(--text2);font-size:13px;line-height:1.7;max-width:360px;margin:0 auto}
+
+.msg-row{display:flex;gap:9px;animation:fi .25s ease}
+.msg-row.user-row{flex-direction:row-reverse}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;margin-top:2px}
+.av.bav{background:var(--bg2);border:1px solid var(--border);box-shadow:var(--shadow)}
+.av.uav{background:var(--accent);color:#fff}
+.msg-wrap{max-width:68%;display:flex;flex-direction:column;gap:4px}
+.bubble{padding:9px 13px;border-radius:11px;font-size:13px;line-height:1.6}
+.bubble.bot{background:var(--bg2);border:1px solid var(--border);border-radius:4px 11px 11px 11px;box-shadow:var(--shadow);font-family:var(--mono);font-size:11.5px;line-height:1.55;white-space:pre-wrap;color:var(--text)}
+.bubble.user{background:var(--accent);border-radius:11px 4px 11px 11px;color:#fff}
+.dbg-btn{align-self:flex-start;background:transparent;border:1px solid var(--border2);color:var(--text3);font-size:10px;padding:2px 9px;border-radius:5px;cursor:pointer;transition:all .12s;font-family:'Inter',sans-serif}
+.dbg-btn:hover{background:var(--bg);color:var(--text2)}
+.dbg-btn.on{color:var(--blue);border-color:var(--blue)}
+.dbg-panel{background:var(--bg3);border:1px solid var(--border);color:#475569;font-family:var(--mono);font-size:10.5px;line-height:1.65;border-radius:7px;padding:11px 13px;overflow-x:auto;white-space:pre;max-height:260px;overflow-y:auto;animation:fi .2s ease}
+.dbg-panel.hidden{display:none}
+.dbg-panel::-webkit-scrollbar{width:3px;height:3px}
+.dbg-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.typing-row{display:flex;gap:9px}
+.typing{background:var(--bg2);border:1px solid var(--border);padding:12px 14px;border-radius:4px 11px 11px 11px;display:flex;gap:5px;box-shadow:var(--shadow)}
+.typing span{width:5px;height:5px;background:var(--text3);border-radius:50%;animation:bounce 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+/* INPUT BAR */
+.input-bar{padding:11px 16px;background:var(--bg2);border-top:1px solid var(--border);display:flex;gap:9px;align-items:center;box-shadow:0 -1px 3px rgba(0,0,0,.04)}
+.inp-wrap{flex:1}
+.inp-wrap input{width:100%;background:var(--bg3);border:1.5px solid var(--border);color:var(--text);font-size:13px;font-family:'Inter',sans-serif;padding:9px 14px;border-radius:8px;outline:none;transition:border-color .2s}
+.inp-wrap input:focus{border-color:var(--accent)}
+.inp-wrap input::placeholder{color:var(--text3)}
+.send-btn{background:var(--accent);color:#fff;border:none;padding:9px 18px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;transition:all .18s}
+.send-btn:hover{background:var(--accent2);box-shadow:0 3px 10px rgba(230,0,40,.3)}
+.send-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo">e& <span>NOC</span></div>
+    <div class="topbar-title">AI Operations Center</div>
+  </div>
+  <div class="topbar-right">
+    <button class="dbg-master-btn" id="master-dbg-btn" onclick="toggleAllDebug()">🔍 Show Debug</button>
+    <div class="tab-bar">
+      <button class="tab active" id="tab-dash" onclick="switchView('dash')">📊 Dashboard</button>
+      <button class="tab" id="tab-chat" onclick="switchView('chat')">💬 AI Chat</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px">
+      <div class="dot"></div><span class="status-txt">Live</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-lbl">Quick Queries</div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">🔴</span>Site Down<span class="sb-arr">▶</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('How many site down today?')">All sites down today</button>
+    <button class="qbtn" onclick="ask('How many site down in alex today?')">▸ Alexandria</button>
+    <button class="qbtn" onclick="ask('How many site down in cairo today?')">▸ Cairo</button>
+    <button class="qbtn" onclick="ask('How many site down in delta today?')">▸ Delta</button>
+    <button class="qbtn" onclick="ask('How many site down in upper egypt today?')">▸ Upper Egypt</button>
+    <button class="qbtn" onclick="ask('How many VIP site down today?')">⭐ VIP only</button>
+  </div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">⚡</span>Power Alarms<span class="sb-arr">▶</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('How many power alarms today?')">All power alarms</button>
+    <button class="qbtn" onclick="ask('How many power alarms in alex today?')">▸ Alexandria</button>
+    <button class="qbtn" onclick="ask('How many power alarms in cairo today?')">▸ Cairo</button>
+    <button class="qbtn" onclick="ask('How many Huawei power alarms today?')">▸ Huawei</button>
+    <button class="qbtn" onclick="ask('How many Nokia power alarms today?')">▸ Nokia</button>
+  </div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">📡</span>By Network Type<span class="sb-arr">▶</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('How many 2G site down today?')">2G down</button>
+    <button class="qbtn" onclick="ask('How many 3G site down today?')">3G down</button>
+    <button class="qbtn" onclick="ask('How many 4G site down today?')">4G down</button>
+    <button class="qbtn" onclick="ask('How many 5G site down today?')">5G down</button>
+    <button class="qbtn" onclick="ask('How many TX alarms today?')">TX alarms</button>
+  </div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">🏭</span>By Vendor<span class="sb-arr">▶</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('How many Huawei site down today?')">Huawei</button>
+    <button class="qbtn" onclick="ask('How many Nokia site down today?')">Nokia</button>
+    <button class="qbtn" onclick="ask('How many ZTE site down today?')">ZTE</button>
+    <button class="qbtn" onclick="ask('How many Ericsson site down today?')">Ericsson</button>
+  </div>
+  <div class="sb-lbl" style="margin-top:4px">Intelligence</div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">🎯</span>Priority<span class="sb-arr">▶</span><span class="new-b">NEW</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('How many critical priority site down today?')">P1 Critical</button>
+    <button class="qbtn" onclick="ask('How many hotspot priority site down today?')">P2 Hotspot</button>
+    <button class="qbtn" onclick="ask('How many VIP site down in cairo?')">VIP Cairo</button>
+  </div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">⏳</span>Alarm Aging<span class="sb-arr">▶</span><span class="new-b">NEW</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('Show unacknowledged critical alarms today')">Unacknowledged</button>
+    <button class="qbtn" onclick="ask('How many root alarms today?')">Root alarms</button>
+    <button class="qbtn" onclick="ask('How many uncleared major alarms today?')">Uncleared Major</button>
+  </div>
+  <div class="sb-lbl" style="margin-top:4px">Reports</div>
+  <div class="sb-hdr" onclick="toggleSb(this)"><span class="sb-ico">📅</span>Historical<span class="sb-arr">▶</span></div>
+  <div class="sb-body">
+    <button class="qbtn" onclick="ask('How many site down in the last 7 days?')">Last 7 days</button>
+    <button class="qbtn" onclick="ask('How many power alarms yesterday?')">Yesterday power</button>
+    <button class="qbtn" onclick="ask('How many site down last 3 days in alex?')">Alex 3 days</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<!-- DASHBOARD VIEW -->
+<div id="view-dash">
+
+  <!-- STAT CARDS -->
+  <div class="stat-grid">
+    <!-- Each card: id, badge class, icon, badge text, label, sub, query -->
+    <div class="stat-card red" id="card-total">
+      <div class="sc-top"><span class="sc-ico">🔔</span><span class="sc-badge b-r">TODAY</span></div>
+      <div class="sc-val loading" id="val-total"><span class="spin"></span></div>
+      <div class="sc-label">Total Active Alarms</div>
+      <div class="sc-sub">All network</div>
+      <button class="sc-dbg-btn" id="dbg-btn-total" onclick="toggleCardDbg('total')">⬡ Debug</button>
+      <pre class="sc-dbg-panel" id="dbg-panel-total"></pre>
+    </div>
+    <div class="stat-card orange" id="card-down">
+      <div class="sc-top"><span class="sc-ico">📡</span><span class="sc-badge b-o">DOWN</span></div>
+      <div class="sc-val loading" id="val-down"><span class="spin"></span></div>
+      <div class="sc-label">Sites Down</div>
+      <div class="sc-sub">All regions</div>
+      <button class="sc-dbg-btn" id="dbg-btn-down" onclick="toggleCardDbg('down')">⬡ Debug</button>
+      <pre class="sc-dbg-panel" id="dbg-panel-down"></pre>
+    </div>
+    <div class="stat-card blue" id="card-power">
+      <div class="sc-top"><span class="sc-ico">⚡</span><span class="sc-badge b-b">POWER</span></div>
+      <div class="sc-val loading" id="val-power"><span class="spin"></span></div>
+      <div class="sc-label">Power Alarms</div>
+      <div class="sc-sub">Network-wide</div>
+      <button class="sc-dbg-btn" id="dbg-btn-power" onclick="toggleCardDbg('power')">⬡ Debug</button>
+      <pre class="sc-dbg-panel" id="dbg-panel-power"></pre>
+    </div>
+    <div class="stat-card purple" id="card-vip">
+      <div class="sc-top"><span class="sc-ico">⭐</span><span class="sc-badge b-p">VIP</span></div>
+      <div class="sc-val loading" id="val-vip"><span class="spin"></span></div>
+      <div class="sc-label">VIP Sites Down</div>
+      <div class="sc-sub">Priority sites</div>
+      <button class="sc-dbg-btn" id="dbg-btn-vip" onclick="toggleCardDbg('vip')">⬡ Debug</button>
+      <pre class="sc-dbg-panel" id="dbg-panel-vip"></pre>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="load-btn" id="load-btn" onclick="loadDashboard()">🔄 Query Now</button>
+    <span class="time-lbl" id="time-lbl">Not loaded — press Query Now</span>
+    <div class="prog-bar" id="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="row2">
+    <div class="panel" id="panel-region">
+      <div class="panel-top">
+        <div class="panel-title">📍 Site Down by Region</div>
+        <button class="panel-dbg-btn" id="dbg-btn-region" onclick="togglePanelDbg('region')">⬡ Debug</button>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-region"></canvas></div>
+      <pre class="panel-dbg-panel" id="dbg-panel-region"></pre>
+    </div>
+    <div class="panel" id="panel-tech">
+      <div class="panel-top">
+        <div class="panel-title">📶 Down by Network Type</div>
+        <button class="panel-dbg-btn" id="dbg-btn-tech" onclick="togglePanelDbg('tech')">⬡ Debug</button>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-tech"></canvas></div>
+      <pre class="panel-dbg-panel" id="dbg-panel-tech"></pre>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="row2">
+    <div class="panel" id="panel-vendor">
+      <div class="panel-top">
+        <div class="panel-title">🏭 Down by Vendor</div>
+        <button class="panel-dbg-btn" id="dbg-btn-vendor" onclick="togglePanelDbg('vendor')">⬡ Debug</button>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
+      <pre class="panel-dbg-panel" id="dbg-panel-vendor"></pre>
+    </div>
+    <div class="panel" id="panel-power">
+      <div class="panel-top">
+        <div class="panel-title">⚡ Power Alarms by Region</div>
+        <button class="panel-dbg-btn" id="dbg-btn-power-r" onclick="togglePanelDbg('power-r')">⬡ Debug</button>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-power-r"></canvas></div>
+      <pre class="panel-dbg-panel" id="dbg-panel-power-r"></pre>
+    </div>
+  </div>
+
+  <!-- QUICK ASK -->
+  <div class="panel">
+    <div class="panel-title">🤖 Quick Ask</div>
+    <div class="chips">
+      <div class="chip red" onclick="askAndSwitch('How many site down today?')">🔴 All Down</div>
+      <div class="chip" onclick="askAndSwitch('How many power alarms today?')">⚡ Power</div>
+      <div class="chip" onclick="askAndSwitch('How many VIP site down today?')">⭐ VIP Down</div>
+      <div class="chip blue" onclick="askAndSwitch('How many unacknowledged critical alarms today?')">🔔 Unack Critical</div>
+      <div class="chip" onclick="askAndSwitch('How many site down in alex today?')">📍 Alex</div>
+      <div class="chip" onclick="askAndSwitch('How many 4G site down today?')">📡 4G</div>
+      <div class="chip" onclick="askAndSwitch('How many root alarms today?')">🌳 Root</div>
+    </div>
+  </div>
+
+</div><!-- /view-dash -->
+
+<!-- CHAT VIEW -->
+<div id="view-chat">
+  <div class="messages" id="messages">
+    <div class="welcome-chat" id="welcome-chat">
+      <div class="wico">🤖</div>
+      <h2><span class="r">e&</span> NOC Operations AI</h2>
+      <p>Ask anything about alarms — site down, power, VIP, regions, vendors, or network types.</p>
+    </div>
+  </div>
+  <div class="input-bar">
+    <div class="inp-wrap">
+      <input type="text" id="chatInput" placeholder="e.g. How many power alarms in Cairo today?" onkeydown="if(event.key==='Enter')sendMsg()">
+    </div>
+    <button class="send-btn" id="send-btn" onclick="sendMsg()">Send ➤</button>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+const WH = 'http://10.80.174.145:5678/webhook/chat';
+let charts = {};
+let isLoading = false;
+let debugVisible = false;
+let totalTasks = 0, doneTasks = 0;
+
+// ── View switching ──────────────────────────────────────
+function switchView(v) {
+  ['dash','chat'].forEach(x => {
+    document.getElementById('tab-'+x).classList.toggle('active', x===v);
+    document.getElementById('view-'+x).style.display = x===v ? (v==='dash'?'flex':'flex') : 'none';
+  });
+}
+
+// ── Sidebar ──────────────────────────────────────────────
+function toggleSb(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('show');
+}
+
+// ── Master debug toggle ─────────────────────────────────
+function toggleAllDebug() {
+  debugVisible = !debugVisible;
+  const btn = document.getElementById('master-dbg-btn');
+  btn.textContent = debugVisible ? '🔍 Hide Debug' : '🔍 Show Debug';
+  btn.classList.toggle('on', debugVisible);
+  // Show/hide all debug buttons
+  document.querySelectorAll('.sc-dbg-btn, .panel-dbg-btn').forEach(b => {
+    b.style.display = debugVisible ? 'block' : 'none';
+  });
+}
+
+// ── Per-card debug toggle ───────────────────────────────
+function toggleCardDbg(id) {
+  const panel = document.getElementById('dbg-panel-'+id);
+  const btn   = document.getElementById('dbg-btn-'+id);
+  const shown = panel.style.display === 'block';
+  panel.style.display = shown ? 'none' : 'block';
+  btn.classList.toggle('on', !shown);
+  btn.textContent = shown ? '⬡ Debug' : '◈ Hide';
+}
+
+function togglePanelDbg(id) {
+  const panel = document.getElementById('dbg-panel-'+id);
+  const btn   = document.getElementById('dbg-btn-'+id);
+  const shown = panel.style.display === 'block';
+  panel.style.display = shown ? 'none' : 'block';
+  btn.classList.toggle('on', !shown);
+  btn.textContent = shown ? '⬡ Debug' : '◈ Hide';
+}
+
+// ── Progress bar ──────────────────────────────────────────
+function startProg(total) {
+  totalTasks = total; doneTasks = 0;
+  document.getElementById('prog-bar').style.display = 'block';
+  setProg(0);
+}
+function stepProg() {
+  doneTasks++;
+  setProg(Math.round((doneTasks/totalTasks)*100));
+}
+function stopProg() {
+  setProg(100);
+  setTimeout(()=>{ document.getElementById('prog-bar').style.display='none'; },400);
+}
+function setProg(pct) {
+  document.getElementById('prog-fill').style.width = pct+'%';
+}
+
+// ── API call + card/chart update ──────────────────────────
+async function queryAndUpdate({msg, valId, dbgId, label}) {
+  if(valId) {
+    const el = document.getElementById('val-'+valId);
+    if(el) { el.innerHTML='<span class="spin"></span>'; el.className='sc-val loading'; }
+  }
+  let debug = {message_sent: msg};
+  try {
+    const resp = await fetch(WH, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:msg})});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    debug = {...debug, total_returned: data.total, api_total: data.api_total, deduped: data.deduped_total, raw_response_keys: Object.keys(data)};
+    if(valId) {
+      const el = document.getElementById('val-'+valId);
+      if(el) { el.textContent = data.total ?? '—'; el.className='sc-val'; }
+    }
+    return {data, debug, total: data.total ?? 0};
+  } catch(e) {
+    debug.error = e.message;
+    if(valId) {
+      const el = document.getElementById('val-'+valId);
+      if(el) { el.textContent = 'ERR'; el.className='sc-val err'; }
+    }
+    return {data:null, debug, total:0};
+  } finally {
+    if(dbgId) {
+      const p = document.getElementById('dbg-panel-'+dbgId);
+      if(p) p.textContent = JSON.stringify(debug, null, 2);
+    }
+    stepProg();
+  }
+}
+
+// ── Charts ────────────────────────────────────────────────
+const CC = { red:'#e60028', blue:'#2563eb', green:'#059669', orange:'#d97706', purple:'#7c3aed', grid:'#e2e8f0', text:'#94a3b8' };
+
+function mkChart(id, type, labels, data, colors) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type,
+    data:{ labels, datasets:[{ data, backgroundColor: colors, borderColor: type==='bar' ? colors.map(c=>c+'bb') : 'transparent', borderWidth: type==='bar' ? 0 : 2, borderRadius: type==='bar' ? 6 : 0 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:type!=='bar', labels:{color:CC.text, font:{size:10.5}, boxWidth:10, padding:8} },
+               tooltip:{backgroundColor:'#fff', borderColor:'#e2e8f0', borderWidth:1, titleColor:'#0f172a', bodyColor:'#475569'} },
+      scales: type==='bar' ? { x:{ticks:{color:CC.text, font:{size:10}}, grid:{color:CC.grid}}, y:{ticks:{color:CC.text, font:{size:10}}, grid:{color:CC.grid}, beginAtZero:true} } : {}
+    }
+  });
+}
+
+// ── Load Dashboard ─────────────────────────────────────────
+async function loadDashboard() {
+  const btn = document.getElementById('load-btn');
+  btn.disabled = true; btn.textContent = '⏳ Loading...';
+  document.getElementById('time-lbl').textContent = 'Querying (Sequential to prevent overload)...';
+  startProg(22);
+
+  // We run them sequentially to avoid overloading the n8n Ollama server which causes timeouts and JSON errors
+  const run = async (msg, valId, dbgId) => {
+    const r = await queryAndUpdate({msg, valId, dbgId});
+    return r.total;
+  };
+
+  // 1. Cards
+  const total = await run('How many active alarms right now?', 'total', 'total');
+  const down  = await run('How many site down today?', 'down', 'down');
+  const power = await run('How many power alarms today?', 'power', 'power');
+  const vip   = await run('How many VIP site down today?', 'vip', 'vip');
+
+  // 2. Region Chart
+  const rAlex  = await run('How many site down in alex today?', null, '_r0');
+  const rCairo = await run('How many site down in cairo today?', null, '_r1');
+  const rDelta = await run('How many site down in delta today?', null, '_r2');
+  const rUpper = await run('How many site down in upper egypt today?', null, '_r3');
+  const rSinai = await run('How many site down in sinai today?', null, '_r4');
+  
+  const regions = ['Alex','Cairo','Delta','Upper Egypt','Sinai'];
+  const regionTotals = [rAlex, rCairo, rDelta, rUpper, rSinai];
+  mkChart('chart-region','bar', regions, regionTotals, [CC.red,CC.blue,CC.green,CC.orange,CC.purple]);
+  document.getElementById('dbg-panel-region').textContent = JSON.stringify({queries: regions.map((r,i)=>({region:r, total:regionTotals[i]}))},null,2);
+
+  // 3. Tech Chart
+  const t2g = await run('How many 2G site down today?', null, '_t0');
+  const t3g = await run('How many 3G site down today?', null, '_t1');
+  const t4g = await run('How many 4G site down today?', null, '_t2');
+  const t5g = await run('How many 5G site down today?', null, '_t3');
+  
+  const techs = ['2G','3G','4G','5G'];
+  const techTotals = [t2g, t3g, t4g, t5g];
+  mkChart('chart-tech','doughnut', techs, techTotals, [CC.green,CC.blue,CC.orange,CC.purple]);
+  document.getElementById('dbg-panel-tech').textContent = JSON.stringify({queries: techs.map((t,i)=>({tech:t, total:techTotals[i]}))},null,2);
+
+  // 4. Vendor Chart
+  const vHuawei   = await run('How many Huawei site down today?', null, '_v0');
+  const vNokia    = await run('How many Nokia site down today?', null, '_v1');
+  const vZTE      = await run('How many ZTE site down today?', null, '_v2');
+  const vEricsson = await run('How many Ericsson site down today?', null, '_v3');
+  
+  const vendors = ['Huawei','Nokia','ZTE','Ericsson'];
+  const vendorTotals = [vHuawei, vNokia, vZTE, vEricsson];
+  mkChart('chart-vendor','bar', vendors, vendorTotals, [CC.red,CC.blue,CC.orange,CC.green]);
+  document.getElementById('dbg-panel-vendor').textContent = JSON.stringify({queries: vendors.map((v,i)=>({vendor:v, total:vendorTotals[i]}))},null,2);
+
+  // 5. Power by Region
+  const pAlex  = await run('How many power alarms in alex today?', null, '_p0');
+  const pCairo = await run('How many power alarms in cairo today?', null, '_p1');
+  const pDelta = await run('How many power alarms in delta today?', null, '_p2');
+  const pUpper = await run('How many power alarms in upper egypt today?', null, '_p3');
+  const pSinai = await run('How many power alarms in sinai today?', null, '_p4');
+
+  const powerTotals = [pAlex, pCairo, pDelta, pUpper, pSinai];
+  mkChart('chart-power-r','doughnut', regions, powerTotals, [CC.red,CC.blue,CC.green,CC.orange,CC.purple]);
+  document.getElementById('dbg-panel-power-r').textContent = JSON.stringify({queries: regions.map((r,i)=>({region:r, total:powerTotals[i]}))},null,2);
+
+  stopProg();
+  const now = new Date().toLocaleTimeString('en-GB');
+  document.getElementById('time-lbl').textContent = 'Last updated: ' + now;
+  btn.disabled = false; btn.textContent = '🔄 Refresh';
+}
+
+// ── CHAT ──────────────────────────────────────────────────
+function ask(q) { switchView('chat'); document.getElementById('chatInput').value=q; sendMsg(); }
+function askAndSwitch(q) { ask(q); }
+
+async function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if(!msg || isLoading) return;
+  isLoading = true; input.value='';
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('welcome-chat')?.remove();
+  const msgs = document.getElementById('messages');
+
+  msgs.insertAdjacentHTML('beforeend',`<div class="msg-row user-row"><div class="av uav">👤</div><div class="msg-wrap"><div class="bubble user">${esc(msg)}</div></div></div>`);
+
+  const tid='typ'+Date.now();
+  msgs.insertAdjacentHTML('beforeend',`<div class="typing-row" id="${tid}"><div class="av bav">🤖</div><div class="typing"><span></span><span></span><span></span></div></div>`);
+  msgs.scrollTop=msgs.scrollHeight;
+
+  try {
+    const resp = await fetch(WH,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    document.getElementById(tid)?.remove();
+    const did='dbg'+Date.now();
+    msgs.insertAdjacentHTML('beforeend',`
+      <div class="msg-row">
+        <div class="av bav">🤖</div>
+        <div class="msg-wrap">
+          <div class="bubble bot">${esc(data.reply||'No response')}</div>
+          <button class="dbg-btn" onclick="tDbg('${did}',this)">🔍 Debug</button>
+          <pre class="dbg-panel hidden" id="${did}">${esc(JSON.stringify(data.debug||data,null,2))}</pre>
+        </div>
+      </div>`);
+  } catch(e) {
+    document.getElementById(tid)?.remove();
+    msgs.insertAdjacentHTML('beforeend',`<div class="msg-row"><div class="av bav">🤖</div><div class="msg-wrap"><div class="bubble bot">⚠️ ${esc(e.message)}</div></div></div>`);
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+  isLoading=false;
+  document.getElementById('send-btn').disabled=false;
+  document.getElementById('chatInput').focus();
+}
+
+function tDbg(id,btn) {
+  const p=document.getElementById(id);
+  p.classList.toggle('hidden');
+  btn.classList.toggle('on');
+  btn.textContent=p.classList.contains('hidden')?'🔍 Debug':'🔍 Hide';
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Init charts with placeholders
+['chart-region','chart-vendor'].forEach(id=>mkChart(id,'bar',['…'],[0],['#e2e8f0']));
+['chart-tech','chart-power-r'].forEach(id=>mkChart(id,'doughnut',['…'],[1],['#e2e8f0']));
+</script>
+</body>
+</html>

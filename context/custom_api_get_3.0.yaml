@@ -1,0 +1,190 @@
+openapi: 3.0.1
+info:
+  title: custom_api_get
+  contact:
+    name: Huawei Managed Services
+  version: 1.0.0
+servers:
+- url: /adc-intg/api/rest/v1/custom_api/custom_api/custom_api_get
+paths:
+  /query_alarms/query_alarms:
+    get:
+      operationId: query_alarms
+      parameters:
+      - name: start
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: city
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: isrootalarm
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: filteridentifcation
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: diagnosestatus
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: isrootne
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: rawalarmname
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: alarmid
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: alertgroup
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: sitedownflag
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: domain
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: networktype
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: emsname
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: node
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: devicetype
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: netype
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: vendor
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: sitepriority
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: acknowledged
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: sitepoweroff
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: isvip
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: alarmname
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: province
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: county
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: location
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: severity
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: starttime
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: endtime
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: sitecode
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: type
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: faultlevel
+        in: header
+        required: false
+        schema:
+          type: string
+      - name: standardalarmseverity
+        in: header
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+      deprecated: false

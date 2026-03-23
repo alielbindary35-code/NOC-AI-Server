@@ -1,0 +1,392 @@
+{
+  "name": "NOC Alarm Summary v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alarm-summary",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2048,
+        -896
+      ],
+      "id": "39fa835f-1f4b-4b36-9d71-00ca7cfabf20",
+      "name": "alarm-summary",
+      "webhookId": "12c430ba-7d3d-42cd-90fc-2a83077a2d0d"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e5bd12d-13ce-4fc4-816e-6b12520062c8",
+              "name": "message",
+              "value": "={{$json.body.message}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2064,
+        -704
+      ],
+      "id": "fad4ea56-00d4-42a3-b11a-f21e3f6ee128",
+      "name": "message"
+    },
+    {
+      "parameters": {
+        "jsCode": "const messageRaw = $json.message || \"\";\nconst message = messageRaw.toLowerCase();\n\nlet intent = \"unknown\";\n\nif (\n  message.includes(\"critical\") ||\n  message.includes(\"major\") ||\n  message.includes(\"minor\") ||\n  message.includes(\"warning\")\n) {\n  intent = \"severity_breakdown\";\n} else if (\n  message.includes(\"power off\") ||\n  message.includes(\"site power\") ||\n  message.includes(\"power alarm\") ||\n  message.includes(\"power alarms\") ||\n  message.includes(\"power\")\n) {\n  intent = \"power_alarm\";\n} else if (\n  message.includes(\"unack\") ||\n  message.includes(\"not acknowledged\") ||\n  message.includes(\"acknowledged\")\n) {\n  intent = \"unack_alarm\";\n} else if (\n  (message.includes(\"site\") && message.includes(\"down\")) ||\n  message.includes(\"network down\") ||\n  message.includes(\"outage\")\n) {\n  intent = \"sites_down\";\n} else if (message.includes(\"how many\") && message.includes(\"alarm\")) {\n  intent = \"alarm_count\";\n} else if (message.includes(\"vip\")) {\n  intent = \"vip_sites\";\n} else if (message.includes(\"top\") && message.includes(\"site\")) {\n  intent = \"top_sites\";\n} else if (\n  message.includes(\"fm office\") ||\n  message.includes(\"office\") ||\n  message.includes(\"region\") ||\n  message.includes(\"location\")\n) {\n  intent = \"fm_office\";\n} else if (\n  message.includes(\"domain\") ||\n  message.includes(\"network type\") ||\n  message.includes(\"2g\") ||\n  message.includes(\"3g\") ||\n  message.includes(\"4g\") ||\n  message.includes(\"5g\") ||\n  message.includes(\"tx\") ||\n  message.includes(\"transmission\") ||\n  message.includes(\"ran\")\n) {\n  intent = \"domain_breakdown\";\n} else if (\n  message.includes(\"older than\") ||\n  message.includes(\"more than\") ||\n  message.includes(\"hours\") ||\n  message.includes(\"oldest\") ||\n  message.includes(\"aging\")\n) {\n  intent = \"aging\";\n}\n\nconst flags = {\n  asksDown: message.includes(\"down\") || message.includes(\"outage\"),\n  asksPower: message.includes(\"power\"),\n  asksVip: message.includes(\"vip\"),\n  asks5g: message.includes(\"5g\"),\n  asks4g: message.includes(\"4g\"),\n  asks3g: message.includes(\"3g\"),\n  asks2g: message.includes(\"2g\"),\n  asksTx: message.includes(\"tx\") || message.includes(\"transmission\"),\n  asksRan: message.includes(\"ran\"),\n  asksCritical: message.includes(\"critical\"),\n  asksMajor: message.includes(\"major\"),\n  asksMinor: message.includes(\"minor\"),\n  asksWarning: message.includes(\"warning\"),\n};\n\nreturn [\n  {\n    json: {\n      message: messageRaw,\n      intent,\n      flags\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1904,
+        -704
+      ],
+      "id": "4c3ae029-e346-470c-a750-b6c239387419",
+      "name": "detect-intent"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 8,
+        "output": "={{\n{\n  \"sites_down\":0,\n  \"alarm_count\":1,\n  \"power_alarm\":2,\n  \"severity_breakdown\":3,\n  \"fm_office\":4,\n  \"domain_breakdown\":5,\n  \"aging\":6\n}[$json.intent] ?? 7\n}}"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1760,
+        -912
+      ],
+      "id": "9d538359-ae6d-436c-951f-2231990b55f8",
+      "name": "intent-router"
+    },
+    {
+      "parameters": {
+        "url": "https://10.80.174.137:31943/adc-intg/api/rest/v1/custom_api/custom_api/custom_api_get/query_alarms/query_alarm",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "=starttime     {{$json.starttime}}\nendtime       {{$json.endtime}}\n\nstart         {{$json.start}}\nlimit         {{$json.limit}}\ntype          {{$json.type}}\n\nseverity      {{$json.severity}}\nsitedownflag  {{$json.sitedownflag}}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "start",
+              "value": "0"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "type",
+              "value": "1"
+            },
+            {
+              "name": "starttime",
+              "value": "={{ $json.starttime }}"
+            },
+            {
+              "name": "endtime",
+              "value": "={{ $json.endtime }}"
+            },
+            {
+              "name": "standardalarmseverity ",
+              "value": "={{$json.standardalarmseverity}}"
+            },
+            {
+              "name": "=alarmname",
+              "value": "={{$json.alarmname}}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -2272,
+        -1072
+      ],
+      "id": "0e6f16bb-2f01-41fb-88ac-9c88f4e7bdad",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "YqTrI8pe3Dx0bBFo",
+          "name": "API credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const total = $json.total || 0;\n\nconst intent = $('detect-intent').first().json.intent || $json.intent || \"\";\nconst start = $('build_time_range').first().json.start_local || \"\";\nconst end = $('build_time_range').first().json.end_local || \"\";\n\nlet answer = \"\";\n\nif (intent === \"sites_down\") {\n  answer = `Sites Down Summary\nTotal Down Sites: ${total}\nTime Range: ${start} → ${end}`;\n} else if (intent === \"alarm_count\") {\n  answer = `Alarm Summary\nTotal Alarms: ${total}\nTime Range: ${start} → ${end}`;\n} else if (intent === \"severity_breakdown\") {\n  const sev = $('build_query_severity').first().json.standardalarmseverity || \"Selected\";\n  answer = `Severity Summary\nTotal ${sev} Alarms: ${total}\nTime Range: ${start} → ${end}`;\n} else if (intent === \"power_alarm\") {\n  answer = `Power Alarm Summary\nTotal Power Alarms: ${total}\nTime Range: ${start} → ${end}`;\n} else {\n  answer = `Alarm Summary\nTotal: ${total}\nTime Range: ${start} → ${end}`;\n}\n\nreturn [\n  {\n    json: {\n      answer,\n      value: total,\n      intent\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1792,
+        -1072
+      ],
+      "id": "b5ad97af-5d28-46be-bebd-03fec227e4a3",
+      "name": "format_sites_down"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n{\njson: {\n...$json,\nseverity: \"Uncleared\",\nsitedownflag: \"Yes\"\n}\n}\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1504,
+        -1152
+      ],
+      "id": "08c18b38-3c3e-4761-b940-c5fad06f4aef",
+      "name": "build_query_sites_down"
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = ($json.message || \"\").toLowerCase();\nconst now = new Date();\n\nlet startDate = new Date(now);\nlet endDate = new Date(now);\n\n// default = today local full day\nstartDate.setHours(0, 0, 0, 0);\nendDate.setHours(23, 59, 59, 999);\n\n// custom ranges\nif (message.includes(\"last 1 hour\") || message.includes(\"last hour\")) {\n  endDate = new Date(now);\n  startDate = new Date(now.getTime() - 1 * 60 * 60 * 1000);\n} else if (message.includes(\"last 6 hours\")) {\n  endDate = new Date(now);\n  startDate = new Date(now.getTime() - 6 * 60 * 60 * 1000);\n} else if (message.includes(\"last 12 hours\")) {\n  endDate = new Date(now);\n  startDate = new Date(now.getTime() - 12 * 60 * 60 * 1000);\n} else if (message.includes(\"last 24 hours\")) {\n  endDate = new Date(now);\n  startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);\n} else if (message.includes(\"yesterday\")) {\n  startDate = new Date(now);\n  startDate.setDate(startDate.getDate() - 1);\n  startDate.setHours(0, 0, 0, 0);\n\n  endDate = new Date(now);\n  endDate.setDate(endDate.getDate() - 1);\n  endDate.setHours(23, 59, 59, 999);\n} else if (message.includes(\"last 7 days\")) {\n  endDate = new Date(now);\n  startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\n}\n\nfunction formatLocal(d) {\n  const pad = (n) => String(n).padStart(2, \"0\");\n  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;\n}\n\nreturn [\n  {\n    json: {\n      ...$json,\n      start: 0,\n      limit: 100,\n      type: 1,\n      starttime: startDate.getTime(),\n      endtime: endDate.getTime(),\n      start_local: formatLocal(startDate),\n      end_local: formatLocal(endDate)\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        -736
+      ],
+      "id": "bedb6f60-187f-4d9f-9a97-4815c9c43919",
+      "name": "build_time_range"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json;\n\n// Try to detect total from common shapes\nlet total = 0;\n\nif (typeof raw.total !== 'undefined') {\n  total = Number(raw.total) || 0;\n} else if (Array.isArray(raw.result)) {\n  total = raw.result.length;\n} else if (Array.isArray(raw.data)) {\n  total = raw.data.length;\n} else if (Array.isArray(raw.rows)) {\n  total = raw.rows.length;\n}\n\n// Try to extract records\nconst records =\n  Array.isArray(raw.result) ? raw.result :\n  Array.isArray(raw.data) ? raw.data :\n  Array.isArray(raw.rows) ? raw.rows :\n  [];\n\nreturn [\n  {\n    json: {\n      total,\n      records,\n      raw\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2048,
+        -1072
+      ],
+      "id": "9a6bec04-d4f9-4f37-b88f-c8cce0c13ff0",
+      "name": "normalize_alarm_api"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n{\njson: {\n...$json,\nseverity: \"Uncleared\"\n}\n}\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        -1168
+      ],
+      "id": "7224acb4-8d06-47de-956f-b60698f80e23",
+      "name": "build_query_alarm_count"
+    },
+    {
+      "parameters": {
+        "jsCode": "const flags = $json.flags || {};\n\nlet standardalarmseverity = \"\";\n\nif (flags.asksCritical) standardalarmseverity = \"Critical\";\nelse if (flags.asksMajor) standardalarmseverity = \"Major\";\nelse if (flags.asksMinor) standardalarmseverity = \"Minor\";\nelse if (flags.asksWarning) standardalarmseverity = \"Warning\";\n\nreturn [\n  {\n    json: {\n      ...$json,\n      severity: \"Uncleared\",\n      standardalarmseverity\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        -976
+      ],
+      "id": "d526630b-a77c-4143-8c52-b3364e810912",
+      "name": "build_query_severity"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      ...$json,\n      severity: \"Uncleared\",\n      sitepoweroff: \"Yes\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1392,
+        -816
+      ],
+      "id": "4438a792-721d-411f-8a53-5824021bc99e",
+      "name": "build_query_power_alarm"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "alarm-summary": {
+      "main": [
+        [
+          {
+            "node": "message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "message": {
+      "main": [
+        [
+          {
+            "node": "detect-intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "detect-intent": {
+      "main": [
+        [
+          {
+            "node": "intent-router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "intent-router": {
+      "main": [
+        [
+          {
+            "node": "build_query_sites_down",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_query_alarm_count",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_query_power_alarm",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_query_severity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "normalize_alarm_api",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_query_sites_down": {
+      "main": [
+        [
+          {
+            "node": "build_time_range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_time_range": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize_alarm_api": {
+      "main": [
+        [
+          {
+            "node": "format_sites_down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_query_alarm_count": {
+      "main": [
+        [
+          {
+            "node": "build_time_range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_query_severity": {
+      "main": [
+        [
+          {
+            "node": "build_time_range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_query_power_alarm": {
+      "main": [
+        [
+          {
+            "node": "build_time_range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c46eb255-f245-4e5c-ae5f-493a6b10278e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff02306f19a73e963e5e9909ae18cd9bc7c89315f1ee53cca015f45d73dd622b"
+  },
+  "id": "LvCENAlAk8gd09cg",
+  "tags": []
+}
