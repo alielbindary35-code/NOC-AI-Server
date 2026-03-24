@@ -18,6 +18,11 @@ import json, re, time, os
 from datetime import datetime, timedelta
 from collections import Counter, OrderedDict
 from urllib.parse import urlparse
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 # ═══════════════════════════════════════════════════════════
 # 1. DATA LOADER
@@ -95,9 +100,193 @@ def load_data(custom_path=None):
 
 
 # ═══════════════════════════════════════════════════════════
-# 2. REGEX QUERY PARSER (replaces Ollama AI Agent)
+# 2. OLLAMA AI AGENT (Exactly matches n8n Production Agent)
+# ═══════════════════════════════════════════════════════════
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "llama3.2:1b"
+
+N8N_SYSTEM_PROMPT = """You are a NOC assistant. Extract info from the user message and output EXACTLY 17 key=value lines. Output only values — never write rule descriptions as values.
+
+intent=
+category=
+vendor=
+region_input=
+networktype=
+severity=
+sitedownflag=
+sitepoweroff=
+acknowledged=
+isvip=
+domain=
+sitepriority=
+city=
+isrootne=
+sitecode=
+count_only=
+user_question=
+
+Rules (apply silently, never copy these into output):
+- intent: alarm_count if asking how many/count; list_alarms if asking to show/list; unknown otherwise
+- category: SITE_DOWN if site down or down site; POWER if power alarm or power off; CELL_DOWN if cell; empty if unclear
+- vendor: Huawei | Nokia | ZTE | Ericsson | empty
+- region_input: copy raw location phrase exactly as user said | empty (e.g. alex, cairo, delta, sinai, upper egypt)
+- networktype: 2G | 3G | 4G | 5G | TX | MW | empty
+- severity: Critical | Major | Minor | Warning | Uncleared | Cleared | empty
+- sitedownflag: Yes if site down or down site; empty otherwise
+- sitepoweroff: Yes if power off or power outage; empty otherwise
+- acknowledged: Y | N | empty
+- isvip: Yes if user mentions VIP site; empty otherwise
+- domain: TX | MW | RAN | empty  (network domain ONLY — NOT for power alarms. Power alarms use sitepoweroff. Only set domain if user says TX/MW/RAN/microwave/transmission)
+- sitepriority: Critical | Hotspot | Major | Minor | empty (site importance level — NOT alarm severity)
+- city: exact FM office name if user mentions one (e.g. ALEX1, ALEX2, CAIRO, TANTA); empty otherwise
+- isrootne: Yes if user mentions root alarm or root NE; empty otherwise
+- sitecode: exact site code if mentioned (e.g. ALX3480) | empty
+- count_only: true if asking for count; false if asking to list
+- user_question: copy full original question
+
+CORRECT output for 'how many down site in alex':
+intent=alarm_count
+category=SITE_DOWN
+vendor=
+region_input=alex
+networktype=
+severity=
+sitedownflag=Yes
+sitepoweroff=
+acknowledged=
+isvip=
+domain=
+sitepriority=
+city=
+isrootne=
+sitecode=
+count_only=true
+user_question=how many down site in alex
+
+CORRECT output for 'how many VIP site down in cairo?':
+intent=alarm_count
+category=SITE_DOWN
+vendor=
+region_input=cairo
+networktype=
+severity=
+sitedownflag=Yes
+sitepoweroff=
+acknowledged=
+isvip=Yes
+domain=
+sitepriority=
+city=
+isrootne=
+sitecode=
+count_only=true
+user_question=how many VIP site down in cairo?
+
+CORRECT output for 'show 4G Nokia down sites in ALEX1':
+intent=list_alarms
+category=SITE_DOWN
+vendor=Nokia
+region_input=
+networktype=4G
+severity=
+sitedownflag=Yes
+sitepoweroff=
+acknowledged=
+isvip=
+domain=
+sitepriority=
+city=ALEX1
+isrootne=
+sitecode=
+count_only=false
+user_question=show 4G Nokia down sites in ALEX1
+
+Output exactly 17 lines only. Leave value empty if not mentioned.
+
+User Message:
+"""
+
+def ollama_parse_question(msg):
+    """
+    Calls the local Ollama API using the exact n8n System Prompt.
+    Returns a dictionary of parsed params, or None if it fails.
+    """
+    if not HAS_REQUESTS:
+        return None
+        
+    try:
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": N8N_SYSTEM_PROMPT + msg,
+            "stream": False,
+            "options": {"temperature": 0}
+        }
+        res = requests.post(OLLAMA_URL, json=payload, timeout=5)
+        if res.status_code == 200:
+            raw_output = res.json().get('response', '')
+            
+            # Parse the 17 key=value lines
+            p = {
+                'intent': 'unknown',
+                'category': '',
+                'vendor': '',
+                'region_input': '',
+                'networktype': '',
+                'severity': '',
+                'sitedownflag': '',
+                'sitepoweroff': '',
+                'acknowledged': '',
+                'isvip': '',
+                'domain': '',
+                'sitepriority': '',
+                'city': '',
+                'isrootne': '',
+                'sitecode': '',
+                'count_only': True,
+                'user_question': msg,
+            }
+            
+            for line in raw_output.split('\n'):
+                line = line.strip()
+                if '=' in line:
+                    idx = line.find('=')
+                    k = line[:idx].strip().lower()
+                    v = line[idx+1:].strip()
+                    if k in p:
+                        # Fix booleans matching the n8n jsCode
+                        if k == 'count_only':
+                            p[k] = (v.lower() == 'true' or v == '1')
+                        elif k in ['sitedownflag', 'sitepoweroff', 'isvip', 'isrootne']:
+                            p[k] = 'Yes' if v.lower().startswith('yes') else ''
+                        elif k == 'category':
+                            cat = v.upper()
+                            p[k] = cat if cat in ['SITE_DOWN', 'POWER', 'CELL_DOWN'] else ''
+                        elif k == 'severity':
+                            sv = v.lower()
+                            if sv in ["critical","major","minor","warning","uncleared","cleared","active","open"]:
+                                p[k] = sv.capitalize()
+                        elif k == 'sitepriority':
+                            sp = v.lower()
+                            if sp in ["critical","hotspot","major","minor","others"]:
+                                p[k] = sp.capitalize()
+                        else:
+                            p[k] = v
+            return p
+    except Exception as e:
+        print(f"  [WARN] Ollama parsing failed ({e}). Falling back to Regex.")
+    return None
+
+# ═══════════════════════════════════════════════════════════
+# 2.B REGEX QUERY PARSER (Fallback if Ollama is off)
 # ═══════════════════════════════════════════════════════════
 def parse_question(msg):
+    # Try True AI First
+    p = ollama_parse_question(msg)
+    if p:
+        return p
+        
+    print("  [WARN] Using Regex Fallback parser...")
+    # --- REGEX FALLBACK START ---
     q = msg.lower().strip()
     p = {
         'intent': 'alarm_count',
@@ -125,7 +314,7 @@ def parse_question(msg):
         p['count_only'] = False
 
     # ── Category ──
-    if re.search(r'site.?down|down.?site|sites?.?down', q):
+    if re.search(r'site.?down|down.?site|sites?.?down|down.?alarm|alarms?.?down|active.?down', q):
         p['category'] = 'SITE_DOWN'
         p['sitedownflag'] = 'Yes'
     elif re.search(r'power|بور', q):
@@ -198,6 +387,7 @@ def parse_question(msg):
         p['intent'] = 'unknown'
 
     return p
+    # --- REGEX FALLBACK END ---
 
 
 # ═══════════════════════════════════════════════════════════
@@ -231,7 +421,18 @@ def filter_records(records, params, locations):
     # sitedownflag
     if params['sitedownflag'] == 'Yes':
         before = len(result)
-        down_kw = ['oml', 'cpri', 'site down', 'link down', 'service outage', 'cell down', 'nodeb unav', 'enodeb unav', 'unusable', 'unavailable']
+        # Exact keywords from DOWN sheet (SITE_DOWN and CELL_DOWN)
+        down_kw = [
+            'oml fault', 'csl fault', 'bts o&m link failure', 'link between omm and ne broken',
+            'nodeb unavailable', 'wcdma base station out of use', 'nodeb is out of service',
+            'enodeb out of service', 'ne is disconnected', 'ne3sws agent not responding',
+            'enodeb is out of service', 'gnodeb out of service', 'gnodeb du out-of-service',
+            'gsm cell out of service', 'bcch missing', 'cell interruption',
+            'umts cell unavailable', 'wcdma cell out of use', 'cell is out of service',
+            'cell unavailable', 'base station service problem', 'cell service problem',
+            'lte cell outage', 'nr du cell trp unavailable', 'nr du cell unavailable',
+            'nr cell unavailable', 'du cell out-of-service'
+        ]
         result = [
             r for r in result 
             if r.get('sitedownflag') == 'Yes' or 
@@ -243,7 +444,22 @@ def filter_records(records, params, locations):
     # sitepoweroff
     if params['sitepoweroff'] == 'Yes':
         before = len(result)
-        power_kw = ['power', 'mains', 'rectifier', 'battery', 'voltage', 'generator', 'dg', 'ac fail', 'dc low']
+        # Exact keywords from POWER sheet
+        power_kw = [
+            'hybrid dg failure', 'ac main failure', 'ac mains failure', 'ac power failure',
+            'eltek hc rectifier ac power failure', 'emerson hc rectifier critical alarm',
+            'main power failure', 'ac panel main power', 'no ac input alarm',
+            'no dc input alarm', 'rectifier ac main failure', 'rectifier failure',
+            'solar major batteries level', 'hierarchical power supply alarm',
+            'psu shutdown alarm', 'mains input out of range', 'hc rectifier ac failure',
+            'hc od ac rectifier failure', 'hc od dc rectifier failure',
+            'od hc rectifier module failure', 'ac power rectefire alarm',
+            'dc rectefire alarm', 'gen running', 'rectifier minor alarm',
+            'rectfauirminor alarm', 'rectifier module alarm', 'main ac failure',
+            'ac power-cut alarm', 'battery alarm', 'psu alarm',
+            'input voltage is abnormal', 'generator running', 'input power-off',
+            'ac power interruption alarm', 'power ac power off'
+        ]
         result = [
             r for r in result 
             if r.get('sitepoweroff') == 'Yes' or 
@@ -623,6 +839,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         custom_data_file = sys.argv[1]
         
+    # Only load data if executed directly. Otherwise CLI runner handles it.
     load_data(custom_data_file)
     
     port = 5000

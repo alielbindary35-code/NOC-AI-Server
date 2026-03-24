@@ -1,0 +1,8 @@
+# NOC AI CLI – Python dependencies
+# All modules used are part of the Python standard library:
+#   os, sys, json, csv, re, time, datetime, collections,
+#   http.server, urllib.parse, argparse
+#
+# No third-party packages are required natively, but 'requests' 
+# is needed to talk to the local Ollama AI API.
+requests
