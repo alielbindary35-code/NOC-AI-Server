@@ -1,39 +1,73 @@
-# NOC AI Project Implementation Summary
+# 🚀 NOC AI Project Summary — Global Overview
 
-## 1. Core Architecture
-The system is built as a **Deterministic AI Agent**. It uses a Python-based server (`noc_server.py`) that replicates the exact logic of the production `n8n` workflow:
-- **Intent Recognition**: Regex-based parsing of natural language into structured API parameters.
-- **Location Resolution**: Mapping regional inputs (Alex, Delta, Upper Egypt) to specific site locations.
-- **Intelligent Filtering**: Multi-stage filtering process (Vendor -> Technology -> Power/Down Flags).
-- **Graceful Fallbacks**: If explicit SQL/JSON flags (`sitepoweroff`, `sitedownflag`) are missing, the server uses a keyword-based ranking system (Search for "Mains", "Rectifier", "OML", etc.) within the `alarmname` field.
+> **Last Updated:** March 25, 2026
+> **Status:** Phase 1 Complete (Deterministic Agent), Phase 2 Ongoing (Machine Learning)
 
-## 2. Tools & Automation
-### 🖥️ Local AI Server GUI
-- Built with Python `Tkinter` (Zero Dependencies).
-- Compiles into a single `NOC_AI_Local_Server.exe` for easy distribution.
-- **Features**: User logging, Dynamic Data Source switching, JSON-to-CSV converter.
-- **API Simulation**: Generates payloads with `start=0`, `limit=1000`, and `Unix Millisecond` timestamps.
-
-### 📈 Data Expansion Engine
-- `expand_data_mega.py`: Generates 500,000 unique records by randomizing existing patterns to prevent deduplication from wiping test data.
-- Ensures distinct `alarmid` and site identifiers for realistic stress-testing.
-
-## 3. Deployment & Version Control
-- **GitHub**: `alielbindary35-code/NOC-AI-Server.git`
-- **Exclusions**: Large datasets (>100MB) like `mega_data.json` are ignored via `.gitignore`.
-- **Organization**: Seperated into `python_local_server`, `n8n_workflows`, `frontend_ui`, and `docs_and_assets`.
-
-## 4. Testing Status
-- Verified 25+ hardcoded questions from the HTML dashboards.
-- Parameters sent to API are verified as correct (e.g., `sitedownflag: Yes`, `location: Alex`).
-- Count-only questions provide detailed breakdowns; "Show" questions provide site lists.
-
-## 5. Next Phase: Machine Learning (AIOps)
-Transitioning to **Predictive Maintenance**:
-1. Clean 3-5 years of raw CSV data on Google Colab.
-2. Train a specialized NLP model (Telecom-BERT) on local slang.
-3. Implement Predictive Analytics for 24h-outage forecasting.
-4. Build Alarm Correlation to reduce operational noise.
+## 1. Project Mission
+NOC-AI is a professional **AIOps (AI for IT Operations)** assistant designed to replace manual alarm monitoring with natural language queries. It translates human questions (e.g., *"How many sites are down in Alex today?"*) into complex API calls and database queries to provide instant, structured operational insights.
 
 ---
-*Summary generated on March 23, 2026.*
+
+## 2. Core Components
+
+### 🖥️ Local AI Server (Python Core)
+- **Primary Logic**: Replicates the production `n8n` workflow logic for local testing without internet/cloud dependencies.
+- **Smart Data Loading**: Supports multiple formats (`3months.txt`, `mega_data.json`) with automated fallback and flexible JSON parsing (handles `result`, `data`, or `records` structures).
+- **Deterministic Parsing**: Uses advanced Regex and fuzzy matching for Intent Recognition and Location Resolution (e.g., mapping "Delta" to "East Delta|West Delta").
+
+### 🐧 Linux CLI (New!)
+- **Location**: `python_local_server/linux_cli/`
+- **Interactive Mode**: A robust command-line interface for terminal-based operations.
+- **Automated Setup**: Includes `run_cli.sh` which handles dependency installation and environment setup on any Linux distro.
+
+### 🎨 Frontend Dashboards (V4.2)
+- **Location**: `frontend_ui/NOC AI Assistant v4.2.html`
+- **Features**: Sidebar "Quick Queries" for 25+ standard operational questions, real-time debug view, and dynamic response formatting.
+- **Mobile Responsive**: Designed for use in NOC environments on both desktops and tablets.
+
+### ⚙️ n8n Workflows (V3.5)
+- **Location**: `n8n_workflows/NOC AI SQL Agent V3.5 Webhook.json`
+- **Intelligence**: Integrated with **Ollama (llama3.2:1b)** for local AI reasoning.
+- **SQL Agent**: Uses PostgreSQL `ai_alarm_mappings` to resolve unreliable API headers (like `sitepoweroff`) into specific alarm names.
+
+---
+
+## 3. The Query Pipeline (How it works)
+1. **Input**: User asks a question via Chat or Sidebar.
+2. **Parsing**: AI Agent (Ollama) extracts 17+ parameters (Location, Tech, Vendor, Start/End Time).
+3. **Resolution**: 
+    - **Regions**: "Alex" → `Alex`, "Delta" → `East Delta|West Delta`.
+    - **Alarms**: "Power" → Queries DB for specific alarm names like "Mains Fail".
+4. **API Call**: Builds a high-limit (1000 records) HTTPS POST request with precise headers.
+5. **Deduplication**: Tally-based counting ensures accurate reports for multi-technology sites.
+6. **Reply**: Returns a human-readable summary + raw debug JSON.
+
+---
+
+## 4. Deployment & Installation
+We have automated the deployment for easy distribution across the team:
+
+- **Windows**: Run `python_local_server/scripts/run_gui.bat`.
+    - Automatically checks Python/Pip.
+    - Sets up a Virtual Environment (`venv`).
+    - **Auto-installs Ollama** if missing and pulls the required AI models.
+- **Linux**: Run `python_local_server/linux_cli/run_cli.sh`.
+- **Stand-alone EXE**: `NOC_AI_Local_Server.exe` (v3.2) is available for zero-config startup.
+
+---
+
+## 5. Current Data Schema
+The project relies on standardized context files in `python_local_server/context/`:
+- `ai_alarm_mappings_full.sql`: The source of truth for mapping categories to specific alarm names.
+- `3months.txt / mega_data.json`: Standardized test datasets (500k+ records available for stress testing).
+
+---
+
+## 6. Next Steps: AIOps Evolution
+Moving from **Deterministic Responses** to **Predictive Analytics**:
+1. **Predictive Outage**: Forecasting potential site downs 24h in advance using historical trends.
+2. **Alarm Correlation**: Grouping multiple related alarms (e.g., 20 battery lows in one area) into a single "Main Fail Incident".
+3. **NLP Customization**: Fine-tuning models on local telecom slang and site-specific identifiers.
+
+---
+*This summary serves as the primary entry point for understanding the NOC-AI architecture and current progress.*
