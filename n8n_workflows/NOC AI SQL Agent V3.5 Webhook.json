@@ -1,0 +1,370 @@
+{
+  "name": "NOC AI SQL Agent V3.5 Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-v35",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "v35-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [1000, -400],
+      "webhookId": "noc-ai-agent-v35-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "chatInput",  "value": "={{$json.body.message}}",    "type": "string" },
+            { "id": "a2", "name": "debugMode",  "value": "={{!!$json.body.debug_mode}}", "type": "boolean" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "v35-0002-0002-0002-000000000002",
+      "name": "Extract Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1200, -400]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a NOC telecom assistant. Read the user message and output EXACTLY 20 key=value lines. No extra text, no explanations, no markdown.\n\nOUTPUT FORMAT (exactly 20 lines):\nmode=\nintent=\ncategory=\nvendor=\nregion_input=\noffice_input=\ngeo_type=\nlocation=\nfm_offices=\ntechnology=\nnetworktype=\nseverity=\nsitedownflag=\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitecode=\ncount_only=\nuser_question=\n\n== MODE RULES ==\nmode must be one of: incident | complaint | performance | reporting | unknown\n\nincident: site down, hub down, power alarms, TX alarms, VIP down, cascaded sites, root cause, AVA loss, traffic loss, battery health, site power source, regional alarm counts\ncomplaint: last down time, last up time, cell status, active alarms on site, last intervention\nperformance: traffic trends, KPI trends, AVA trend, application traffic, degradation start time, RTWP, TWAMP, IUB, interference\nreporting: daily traffic totals, daily AVA, VIP AVA, periodic alarms, site detail summaries\nunknown: greetings, unrelated, unclear\n\n== INTENT RULES ==\nincident intents: site_down_count | site_down_list | power_alarm_summary | tx_alarm_summary | vip_down_sites | cascaded_sites_count | root_cause_summary | site_distance | site_power_source | battery_health | ava_loss_estimate | traffic_loss_estimate | last_site_actions\ncomplaint intents: last_down_time | last_up_time | cell_status | site_active_alarms | last_intervention\nperformance intents: traffic_trend | application_traffic_trend | kpi_summary | degradation_start_time | ava_trend | site_kpi_summary | cell_kpi_summary\nreporting intents: daily_traffic_total | daily_ava | vip_ava | periodic_active_alarms | periodic_last_down_time | periodic_cascaded_sites | site_details_summary\nIf unclear: intent=unknown\n\n== CATEGORY RULES ==\ncategory: SITE_DOWN if site down or down site; POWER if power alarm or power off; CELL_DOWN if cell; empty otherwise\n\n== GEOGRAPHY RULES ==\ngeo_type must be: region | office | none\n\nRegion aliases (set geo_type=region, copy raw phrase to region_input):\nalex / alexandria / اسكندرية / اسكندريه -> region\ncairo / القاهرة -> region\ndelta / دلتا -> region\nupper / upper egypt / الصعيد -> region\nsinai / سينا / سيناء -> region\n\nOfficial FM offices (set geo_type=office, copy exact name to office_input):\nAlex: ALEX1, ALEX2, ALEX3, ALEX4, AlexCore\nCairo: Cairo, CairoCore, Downtown, Gesr El Suiz, Giza, Helwan, Mohandesen, OSS, Shorouk, Tagamo3\nEast Delta: DOMYAT, DYARBNEAGM, FAKOUS, MANSURA, ZAGAZIK\nWest Delta: DAMANHOUR, DELENGAT, KAFR ELSHEIKH, SHEBIN, TANTA\nNorth Upper: ASSIUT, BANISUIEF, DEIR MAWAS, FAYOUM, MENYA, Maghagha\nSouth Upper: ASWAN, Abu simple, EDFO, GERGA, LUXOR, QENA, SOHAG\nSinai: ABO REDIES, ARISH, HURGHADA, ISMAILIA, MARSA ALAM, NUWIBA, RASCEDER, SHARM, SUEZ, ZAFRANA\n\nRULE: If user names a region -> geo_type=region, region_input=<raw phrase>, office_input=\nRULE: If user names an FM office -> geo_type=office, office_input=<exact office>, region_input=\nRULE: If no geography -> geo_type=none, both empty\nlocation= always empty (resolved downstream)\nfm_offices= always empty (resolved downstream)\n\n== OTHER FIELD RULES ==\nvendor: Huawei | Nokia | ZTE | Ericsson | empty\ntechnology: 2G | 3G | 4G | 5G | GSM | UMTS | LTE | NR | empty\nnetworktype: same value as technology\nseverity: Critical | Major | Minor | Warning | Uncleared | Cleared | empty\nsitedownflag: Yes if site down or down site; empty otherwise\nsitepoweroff: Yes if power off or power outage; empty otherwise\nacknowledged: Y | N | empty\nisvip: Yes if user mentions VIP site; empty otherwise\ndomain: TX | MW | RAN | empty (only for TX/MW/RAN/microwave/transmission — never for power)\nsitecode: exact site code if mentioned (e.g. ALX3480) | empty\ncount_only: true if asking for count/number; false if asking to list/show\nuser_question: copy full original question exactly\n\n== EXAMPLES ==\nInput: how many site down in alex today?\nmode=incident\nintent=site_down_count\ncategory=SITE_DOWN\nvendor=\nregion_input=alex\noffice_input=\ngeo_type=region\nlocation=\nfm_offices=\ntechnology=\nnetworktype=\nseverity=\nsitedownflag=Yes\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitecode=\ncount_only=true\nuser_question=how many site down in alex today?\n\nInput: how many down sites in ALEX1?\nmode=incident\nintent=site_down_count\ncategory=SITE_DOWN\nvendor=\nregion_input=\noffice_input=ALEX1\ngeo_type=office\nlocation=\nfm_offices=\ntechnology=\nnetworktype=\nseverity=\nsitedownflag=Yes\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitecode=\ncount_only=true\nuser_question=how many down sites in ALEX1?\n\nInput: traffic trend for the last 7 days\nmode=performance\nintent=traffic_trend\ncategory=\nvendor=\nregion_input=\noffice_input=\ngeo_type=none\nlocation=\nfm_offices=\ntechnology=\nnetworktype=\nseverity=\nsitedownflag=\nsitepoweroff=\nacknowledged=\nisvip=\ndomain=\nsitecode=\ncount_only=false\nuser_question=traffic trend for the last 7 days\n\nOutput exactly 20 lines only. Leave value empty if not mentioned."
+        }
+      },
+      "id": "v35-0003-0003-0003-000000000003",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.4,
+      "position": [1420, -400]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:14b",
+        "options": { "temperature": 0 }
+      },
+      "id": "v35-0004-0004-0004-000000000004",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [1220, -180],
+      "credentials": {
+        "ollamaApi": { "id": "VwxCxN5WfcmbgnMK", "name": "Ollama account" }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "v35-0005-0005-0005-000000000005",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1,
+      "position": [1420, -180]
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $json.action_input || $json.output || '';\nif (!raw) throw new Error('No AI output');\nif (typeof raw !== 'string') raw = JSON.stringify(raw);\nraw = raw.trim();\n\nlet p = {};\ntry {\n  let tmp = JSON.parse(raw);\n  if (typeof tmp === 'string') tmp = JSON.parse(tmp);\n  for (const [k,v] of Object.entries(tmp)) p[k.toLowerCase().trim()] = v;\n} catch(e) {\n  for (const l of raw.split('\\n').map(s=>s.trim()).filter(s=>s.indexOf('=')>0)) {\n    const i = l.indexOf('=');\n    const k = l.slice(0,i).trim().toLowerCase();\n    const v = l.slice(i+1).trim();\n    if (k) p[k] = v;\n  }\n}\n\n// Preserve raw AI output for debug\nconst _aiRaw = raw;\n\n// mode\nconst validModes = ['incident','complaint','performance','reporting','unknown'];\nconst modeRaw = String(p.mode||'').toLowerCase().trim();\np.mode = validModes.includes(modeRaw) ? modeRaw : 'unknown';\n\n// intent catalog\nconst validIntents = [\n  'site_down_count','site_down_list','power_alarm_summary','tx_alarm_summary',\n  'vip_down_sites','cascaded_sites_count','root_cause_summary','site_distance',\n  'site_power_source','battery_health','ava_loss_estimate','traffic_loss_estimate',\n  'last_site_actions','last_down_time','last_up_time','cell_status',\n  'site_active_alarms','last_intervention','traffic_trend','application_traffic_trend',\n  'kpi_summary','degradation_start_time','ava_trend','site_kpi_summary',\n  'cell_kpi_summary','daily_traffic_total','daily_ava','vip_ava',\n  'periodic_active_alarms','periodic_last_down_time','periodic_cascaded_sites',\n  'site_details_summary','unknown'\n];\nconst intentRaw = String(p.intent||'').toLowerCase().trim();\np.intent = validIntents.includes(intentRaw) ? intentRaw : 'unknown';\n\n// geo_type\nconst validGeo = ['region','office','none'];\nconst geoRaw = String(p.geo_type||'').toLowerCase().trim();\np.geo_type = validGeo.includes(geoRaw) ? geoRaw : 'none';\np.region_input = String(p.region_input||'').trim();\np.office_input = String(p.office_input||'').trim();\n\n// technology aliases → networktype\nconst techAliases = {lte:'4G',nr:'5G',umts:'3G',gsm:'2G','4g':'4G','3g':'3G','2g':'2G','5g':'5G'};\nconst techRaw = String(p.technology||p.networktype||'').trim();\nconst techNorm = techAliases[techRaw.toLowerCase()] || techRaw.toUpperCase() || '';\nconst validTech = ['2G','3G','4G','5G','GSM','UMTS','LTE','NR'];\np.technology = validTech.includes(techNorm) ? techNorm : techRaw;\np.networktype = p.technology;\n\n// count_only\nconst co = String(p.count_only||'').toLowerCase();\np.count_only = co==='true'||co==='1';\n\n// sitedownflag\nconst sd = String(p.sitedownflag||'').toLowerCase();\np.sitedownflag = sd.startsWith('yes') ? 'Yes' : '';\n\n// sitepoweroff\nconst sp = String(p.sitepoweroff||'').toLowerCase();\np.sitepoweroff = sp.startsWith('yes') ? 'Yes' : '';\n\n// isvip\nconst iv = String(p.isvip||'').toLowerCase();\np.isvip = iv.startsWith('yes') ? 'Yes' : '';\n\n// category\np.category = String(p.category||'').toUpperCase().trim();\nif (!['SITE_DOWN','POWER','CELL_DOWN'].includes(p.category)) p.category = '';\n\n// severity\nconst sr = String(p.severity||'').toLowerCase().trim();\nconst validSev = ['critical','major','minor','warning','uncleared','cleared','active','open'];\np.severity = validSev.includes(sr) ? sr.charAt(0).toUpperCase()+sr.slice(1) : '';\n\n// domain\np.domain = String(p.domain||'').trim();\n\n// vendor, sitecode\np.vendor = String(p.vendor||'').trim();\np.sitecode = String(p.sitecode||'').trim();\np.acknowledged = String(p.acknowledged||'').trim();\n\n// auto-set sitedownflag from intent\nif (['site_down_count','site_down_list','vip_down_sites'].includes(p.intent) && !p.sitedownflag) p.sitedownflag = 'Yes';\n// auto-set category from intent\nif (!p.category && p.sitedownflag === 'Yes') p.category = 'SITE_DOWN';\nif (!p.category && ['power_alarm_summary'].includes(p.intent)) p.category = 'POWER';\n\np._aiRaw = _aiRaw;\n\nreturn [{ json: p }];"
+      },
+      "id": "v35-0006-0006-0006-000000000006",
+      "name": "Parse Agent Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst mode = String(j.mode||'').toLowerCase();\nconst cat = String(j.category||'').trim();\nconst domain = String(j.domain||'').trim();\nconst vendor = String(j.vendor||'').trim();\nconst networktype = String(j.networktype||'').trim();\nconst sitedownflag = String(j.sitedownflag||'').trim();\nconst severity = String(j.severity||'').trim();\nconst isvip = String(j.isvip||'').trim();\nconst sitepriority = String(j.sitepriority||'').trim();\nconst sitecode = String(j.sitecode||'').trim();\n\nconst hasAlarmContext = cat||domain||vendor||networktype||sitedownflag||severity||isvip||sitepriority||sitecode;\nconst operationalModes = ['incident','complaint','performance','reporting'];\nconst isOperational = operationalModes.includes(mode);\nconst isFreechat = !isOperational && !hasAlarmContext;\n\nreturn [{ json: { ...j, _is_freechat: isFreechat } }];"
+      },
+      "id": "v35-0007-0007-0007-000000000007",
+      "name": "Is Free Chat?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, -400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [{ "id": "fc-cond", "leftValue": "={{ $json._is_freechat }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v35-0008-0008-0008-000000000008",
+      "name": "Route IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2060, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = (($items('Parse Agent Output')[0]?.json?.user_question)||'').toLowerCase().trim();\nconst greetings = ['hi','hello','hey','howdy','hola','هاي','سلام','مرحبا','اهلا','أهلا','ازيك','هلو','يا هلا'];\nconst thanks = ['thanks','thank you','شكرا','شكراً','تسلم','مشكور'];\nconst isGreeting = greetings.some(g=>q===g||q.startsWith(g+' ')||q.startsWith(g+','));\nconst isThanks = thanks.some(t=>q.includes(t));\nlet reply;\nif (isThanks) {\n  reply = '😊 You are welcome! I am here to help.\\n\\nFeel free to ask about alarms, sites, or network status.';\n} else if (isGreeting) {\n  reply = '👋 Hello! I am the NOC Operations AI Assistant for e& Egypt.\\n\\nI support 4 operational modes:\\n\\n📡 INCIDENT\\n  Site down counts/lists, Power alarms, TX alarms, VIP down, Cascaded sites\\n  Example: \"How many site down in alex today?\"\\n\\n📞 COMPLAINT\\n  Last down time, Cell status, Active alarms on site, Last intervention\\n  Example: \"Last down time for site ALX3480\"\\n\\n📈 PERFORMANCE  (routing active — data source coming in V3.6)\\n  Traffic trends, KPI summaries, AVA trend, Degradation start time\\n  Example: \"Traffic trend for the last 7 days\"\\n\\n📊 REPORTING  (routing active — data source coming in V3.6)\\n  Daily traffic, Daily AVA, VIP AVA, Periodic summaries\\n  Example: \"Daily AVA report for today\"';\n} else {\n  reply = '🤖 I am specialized in telecom NOC operations.\\n\\nTry asking:\\n  \"How many site down in delta today?\"\\n  \"List VIP down sites in Cairo\"\\n  \"Power alarms in TANTA\"\\n  \"Last down time for site ALX3480\"';\n}\nreturn [{ json: { reply, total: 0, debug: { type: 'free_chat', question: q, timestamp: new Date().toISOString() } } }];"
+      },
+      "id": "v35-0009-0009-0009-000000000009",
+      "name": "Free Chat Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2140, -600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" }
+            ]
+          }
+        }
+      },
+      "id": "v35-0010-0010-0010-000000000010",
+      "name": "Respond to Webhook (Free)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2360, -600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nconst geoType = String(j.geo_type||'none').toLowerCase();\nconst regionRaw = String(j.region_input||'').toLowerCase().trim();\nconst officeRaw = String(j.office_input||'').trim();\n\n// Fuzzy corrections for region input\nconst fuzzy = {dleta:'delta',alx:'alex',alexndria:'alex',cai:'cairo',sinii:'sinai',uper:'upper egypt','upper':'upper egypt'};\nconst regionFixed = fuzzy[regionRaw] || regionRaw;\n\n// Region → resolved location (pipe-string for API)\nconst geoMap = {\n  'alex':'Alex','alexandria':'Alex','اسكندرية':'Alex','اسكندريه':'Alex',\n  'cairo':'Cairo','القاهرة':'Cairo',\n  'delta':'East Delta|West Delta','دلتا':'East Delta|West Delta',\n  'upper egypt':'North Upper|South Upper','upper':'North Upper|South Upper','الصعيد':'North Upper|South Upper',\n  'sinai':'Sinai','سينا':'Sinai','سيناء':'Sinai'\n};\n\n// Canonical FM office list for validation\nconst knownOffices = [\n  'ALEX1','ALEX2','ALEX3','ALEX4','AlexCore',\n  'Cairo','CairoCore','Downtown','Gesr El Suiz','Giza','Helwan','Mohandesen','OSS','Shorouk','Tagamo3',\n  'DOMYAT','DYARBNEAGM','FAKOUS','MANSURA','ZAGAZIK',\n  'DAMANHOUR','DELENGAT','KAFR ELSHEIKH','SHEBIN','TANTA',\n  'ASSIUT','BANISUIEF','DEIR MAWAS','FAYOUM','MENYA','Maghagha',\n  'ASWAN','Abu simple','EDFO','GERGA','LUXOR','QENA','SOHAG',\n  'ABO REDIES','ARISH','HURGHADA','ISMAILIA','MARSA ALAM','NUWIBA','RASCEDER','SHARM','SUEZ','ZAFRANA'\n];\n\nlet location_resolved = '';\nlet office_resolved = '';\nlet region_label = '';\n\nif (geoType === 'region') {\n  location_resolved = geoMap[regionFixed] || geoMap[regionRaw] || j.region_input || '';\n  region_label = j.region_input || regionFixed;\n  office_resolved = '';\n} else if (geoType === 'office') {\n  // Case-insensitive match against canonical list\n  const match = knownOffices.find(o => o.toLowerCase() === officeRaw.toLowerCase());\n  office_resolved = match || officeRaw;\n  location_resolved = '';\n  region_label = '';\n}\n\nreturn {\n  ...j,\n  geo_type: geoType,\n  region_label,\n  location_resolved,\n  office_resolved\n};"
+      },
+      "id": "v35-0011-0011-0011-000000000011",
+      "name": "Resolve Location",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, -400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [{ "id": "mode-cond", "leftValue": "={{ $json.mode }}", "rightValue": "performance", "operator": { "type": "string", "operation": "equals" } }, { "id": "mode-cond2", "leftValue": "={{ $json.mode }}", "rightValue": "reporting", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "v35-0012-0012-0012-000000000012",
+      "name": "Route By Mode",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2360, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst mode = j.mode || 'unknown';\nconst intent = j.intent || 'unknown';\nconst now = new Date().toISOString();\n\nconst reply = `⚠️ ${mode.charAt(0).toUpperCase()+mode.slice(1)} / ${intent} — Data Source Not Connected\\n\\nThis capability is part of the future plan.\\nThe required ${mode} data source is not connected yet in V3.5.\\n\\nWhat the AI understood:\\n  Mode   : ${mode}\\n  Intent : ${intent}\\n  Region : ${j.region_input||'—'}  Office: ${j.office_input||'—'}\\n  Site   : ${j.sitecode||'—'}\\n\\nNo data was requested from any system.\\nNo results were fabricated.\\nThis will be connected in a future version.`;\n\nconst debug = {\n  '1_user_request':      { question: j.user_question, debug_mode: j.debugMode||false, timestamp: now },\n  '2_ai_raw_output':     { raw: j._aiRaw||'(not captured)' },\n  '3_ai_interpretation': { mode, intent, category: j.category||'', geo_type: j.geo_type||'none', technology: j.technology||'', filters: { vendor: j.vendor, severity: j.severity, isvip: j.isvip, sitedownflag: j.sitedownflag, sitepoweroff: j.sitepoweroff, domain: j.domain } },\n  '4_geography':         { region_input: j.region_input||'', office_input: j.office_input||'', geo_type: j.geo_type||'none', location_resolved: j.location_resolved||'', office_resolved: j.office_resolved||'' },\n  '5_sql_mapping':       { skipped: true, reason: 'mode not connected in V3.5' },\n  '6_time_range':        { skipped: true },\n  '7_api_payload':       { skipped: true, reason: 'mode not connected in V3.5' },\n  '8_api_response':      { skipped: true },\n  '9_post_filter_dedup': { skipped: true },\n  '10_count_logic':      { skipped: true },\n  '11_final_reply':      { preview: reply.slice(0, 120) }\n};\n\nreturn [{ json: { reply, total: 0, debug } }];"
+      },
+      "id": "v35-0013-0013-0013-000000000013",
+      "name": "Not Connected Placeholder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2560, -600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" }
+            ]
+          }
+        }
+      },
+      "id": "v35-0014-0014-0014-000000000014",
+      "name": "Respond to Webhook (Not Connected)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2780, -600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst cat = (j.category||'').toUpperCase();\nconst ven = j.vendor||'';\nconst tech = j.technology||'';\nconst domain = (j.domain||'').trim();\nconst nw = (j.networktype||'').trim();\nconst sdf = (j.sitedownflag||'').trim();\nconst isrootne = (j.isrootne||'').trim();\n\nlet sql;\nif (cat === 'SITE_DOWN' || sdf === 'Yes') {\n  sql = \"SELECT '__DIRECT__' AS alarm_name\";\n} else if (cat === 'POWER') {\n  let where = [\"category = 'POWER'\"];\n  if (ven) where.push(`vendor = '${ven.replace(/'/g,\"''\")}' `);\n  if (tech) where.push(`technology = '${tech.replace(/'/g,\"''\")}' `);\n  sql = `SELECT alarm_name FROM ai_alarm_mappings WHERE ${where.join(' AND ')} ORDER BY alarm_name;`;\n} else if (isrootne === 'Yes' || domain || nw || ven) {\n  sql = \"SELECT '__DIRECT__' AS alarm_name\";\n} else {\n  sql = \"SELECT '__DIRECT__' AS alarm_name\";\n}\n\nreturn [{ json: { ...j, sql } }];"
+      },
+      "id": "v35-0015-0015-0015-000000000015",
+      "name": "Build SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2560, -400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2760, -400],
+      "id": "v35-0016-0016-0016-000000000016",
+      "name": "Get Alarm Names From Mapping",
+      "credentials": {
+        "postgres": { "id": "6yAH4lwLwnnx60hm", "name": "Postgres account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $items('Build SQL')[0].json;\nconst q = (ctx.user_question||'').toLowerCase();\nconst now = new Date();\nlet s = new Date(now), e = new Date(now);\ns.setHours(0,0,0,0); e.setHours(23,59,59,999);\nif (q.includes('last 1 hour')||q.includes('last hour')){s=new Date(now.getTime()-3600000);e=new Date(now);}\nelse if (q.includes('last 6 hour')){s=new Date(now.getTime()-21600000);e=new Date(now);}\nelse if (q.includes('last 12 hour')){s=new Date(now.getTime()-43200000);e=new Date(now);}\nelse if (q.includes('last 24 hour')){s=new Date(now.getTime()-86400000);e=new Date(now);}\nelse if (q.includes('yesterday')){s=new Date(now);s.setDate(s.getDate()-1);s.setHours(0,0,0,0);e=new Date(now);e.setDate(e.getDate()-1);e.setHours(23,59,59,999);}\nelse if (q.includes('last 7 day')||q.includes('last week')){s=new Date(now.getTime()-604800000);e=new Date(now);}\nelse if (q.includes('last 2 day')){s=new Date(now.getTime()-172800000);e=new Date(now);}\nelse if (q.includes('last 3 day')){s=new Date(now.getTime()-259200000);e=new Date(now);}\nconst isHistorical = q.includes('last')||q.includes('yesterday')||q.includes('week');\nconst apiType = isHistorical ? 3 : 1;\nconst pad = n=>String(n).padStart(2,'0');\nconst fmt = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;\nlet sdf = ctx.sitedownflag||'';\nlet spo = ctx.sitepoweroff||'';\nif (ctx.category==='SITE_DOWN'&&!sdf) sdf='Yes';\nif (ctx.category==='POWER'&&!spo) spo='Yes';\nconst alevs = ['critical','major','minor','warning'];\nconst clevs = ['uncleared','cleared','active','open'];\nconst sr = (ctx.severity||'').toLowerCase().trim();\nconst stdSev = alevs.includes(sr) ? sr.charAt(0).toUpperCase()+sr.slice(1) : '';\nconst clSev = clevs.includes(sr) ? sr.charAt(0).toUpperCase()+sr.slice(1) : '';\nreturn [{ json: {\n  starttime: s.getTime(), endtime: e.getTime(),\n  start_local: fmt(s), end_local: fmt(e),\n  start: 0, limit: 1000, type: apiType,\n  mode: ctx.mode, intent: ctx.intent, category: ctx.category,\n  vendor: ctx.vendor, technology: ctx.technology, networktype: ctx.networktype,\n  geo_type: ctx.geo_type, location_resolved: ctx.location_resolved,\n  office_resolved: ctx.office_resolved, region_label: ctx.region_label,\n  standardalarmseverity: stdSev, clearance_severity: clSev,\n  sitedownflag: sdf, sitepoweroff: spo,\n  acknowledged: ctx.acknowledged, isvip: ctx.isvip,\n  domain: ctx.domain, sitepriority: ctx.sitepriority,\n  isrootne: ctx.isrootne, sitecode: ctx.sitecode,\n  count_only: ctx.count_only, user_question: ctx.user_question,\n  debugMode: ctx.debugMode||false, _aiRaw: ctx._aiRaw||''\n}}];"
+      },
+      "id": "v35-0017-0017-0017-000000000017",
+      "name": "Build Time Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2960, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = $('Build Time Range').item.json;\nconst sqlItems = $items('Get Alarm Names From Mapping');\nconst allNames = sqlItems.map(i=>i.json.alarm_name).filter(Boolean);\nconst isDirectMode = allNames.length===0||allNames.includes('__DIRECT__');\nconst alarmNamesForApi = isDirectMode ? [] : allNames;\n\nlet payload = {\n  start: t.start, limit: t.limit,\n  starttime: t.starttime, endtime: t.endtime,\n  type: t.type\n};\n\nfunction addIfValid(key, val) {\n  if (val && String(val).toLowerCase() !== '(empty)') payload[key] = val;\n}\n\n// EXCLUSIVE geography — region OR office, never both\nif (t.geo_type === 'region' && t.location_resolved) {\n  addIfValid('location', t.location_resolved);\n} else if (t.geo_type === 'office' && t.office_resolved) {\n  addIfValid('city', t.office_resolved);\n}\n\n// Network / Equipment\naddIfValid('vendor', t.vendor);\naddIfValid('networktype', t.technology || t.networktype);\n\n// Domain — TX/MW/RAN only, never Power\nconst domainClean = (t.domain||'').toUpperCase();\nif (domainClean && domainClean !== 'POWER') addIfValid('domain', t.domain);\n\n// Site flags — only in direct mode\nif (isDirectMode) {\n  addIfValid('sitedownflag', t.sitedownflag);\n  addIfValid('sitepoweroff', t.sitepoweroff);\n}\n\n// Standard filters\naddIfValid('isvip', t.isvip);\naddIfValid('sitepriority', t.sitepriority);\naddIfValid('isrootne', t.isrootne);\naddIfValid('acknowledged', t.acknowledged);\naddIfValid('sitecode', t.sitecode);\naddIfValid('standardalarmseverity', t.standardalarmseverity);\naddIfValid('severity', t.clearance_severity);\n\nif (alarmNamesForApi.length > 0) payload['alarmname'] = alarmNamesForApi.join('|');\n\nconst isCountOnly = t.intent === 'alarm_count' || t.count_only === true || ['site_down_count','cascaded_sites_count','power_alarm_summary','tx_alarm_summary'].includes(t.intent) && t.count_only;\n\nreturn [{ json: { payload, metadata: { count_only: isCountOnly, geo_type: t.geo_type, mode: t.mode, intent: t.intent, debugMode: t.debugMode, _aiRaw: t._aiRaw } } }];"
+      },
+      "id": "v35-0018-0018-0018-000000000018",
+      "name": "Build API Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3160, -400]
+    },
+    {
+      "parameters": {
+        "url": "https://10.80.174.137:31943/adc-intg/api/rest/v1/custom_api/custom_api/custom_api_get/query_alarms/query_alarm",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "start",                  "value": "={{ String($json.payload.start ?? 0) }}" },
+            { "name": "limit",                  "value": "={{ String($json.payload.limit ?? 1000) }}" },
+            { "name": "type",                   "value": "={{ String($json.payload.type ?? 1) }}" },
+            { "name": "starttime",              "value": "={{ String($json.payload.starttime) }}" },
+            { "name": "endtime",                "value": "={{ String($json.payload.endtime) }}" },
+            { "name": "alarmname",              "value": "={{ $json.payload.alarmname ?? '' }}" },
+            { "name": "location",               "value": "={{ $json.payload.location ?? '' }}" },
+            { "name": "sitedownflag",           "value": "={{ $json.payload.sitedownflag ?? '' }}" },
+            { "name": "sitepoweroff",           "value": "={{ $json.payload.sitepoweroff ?? '' }}" },
+            { "name": "networktype",            "value": "={{ $json.payload.networktype ?? '' }}" },
+            { "name": "vendor",                 "value": "={{ $json.payload.vendor ?? '' }}" },
+            { "name": "standardalarmseverity",  "value": "={{ $json.payload.standardalarmseverity ?? '' }}" },
+            { "name": "severity",               "value": "={{ $json.payload.severity ?? '' }}" },
+            { "name": "acknowledged",           "value": "={{ $json.payload.acknowledged ?? '' }}" },
+            { "name": "isvip",                  "value": "={{ $json.payload.isvip ?? '' }}" },
+            { "name": "domain",                 "value": "={{ $json.payload.domain ?? '' }}" },
+            { "name": "sitecode",               "value": "={{ $json.payload.sitecode ?? '' }}" },
+            { "name": "city",                   "value": "={{ $json.payload.city ?? '' }}" },
+            { "name": "sitepriority",           "value": "={{ $json.payload.sitepriority ?? '' }}" },
+            { "name": "isrootne",               "value": "={{ $json.payload.isrootne ?? '' }}" }
+          ]
+        },
+        "options": { "allowUnauthorizedCerts": true }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [3360, -400],
+      "id": "v35-0019-0019-0019-000000000019",
+      "name": "Call Alarm API",
+      "credentials": {
+        "httpBasicAuth": { "id": "YqTrI8pe3Dx0bBFo", "name": "API credential" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json;\nconst t = $items('Build Time Range')[0].json;\n\nlet records = Array.isArray(raw.result)  ? raw.result\n            : Array.isArray(raw.data)    ? raw.data\n            : Array.isArray(raw.records) ? raw.records\n            : Array.isArray(raw.rows)    ? raw.rows : [];\n\nconst apiRawTotal = Number(raw.total||raw.count||raw.totalCount||raw.totalRecords||0);\nconst apiRealTotal = Math.max(apiRawTotal, records.length);\n\nif (t.vendor) {\n  records = records.filter(r=>(r.vendor||'').toLowerCase().includes(t.vendor.toLowerCase()));\n}\nconst tech = t.technology || t.networktype || '';\nif (tech) {\n  records = records.filter(r=>(r.networktype||'').toLowerCase().includes(tech.toLowerCase()));\n}\nif (t.acknowledged) {\n  records = records.filter(r=>String(r.acknowledged||''===String(t.acknowledged)));\n}\nif (t.sitecode) {\n  records = records.filter(r=>(r.sitecode||'').toUpperCase()===t.sitecode.toUpperCase());\n}\n\nreturn [{ json: { total: apiRealTotal, records, _vendorFilter: t.vendor, _techFilter: tech, _preDedup: records.length } }];"
+      },
+      "id": "v35-0020-0020-0020-000000000020",
+      "name": "Normalize And Post Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3560, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const all = $input.all();\nconst t = $items('Build Time Range')[0].json;\nconst co = t.count_only === true;\nconst isSiteDown = (t.sitedownflag==='Yes'||t.category==='SITE_DOWN');\nconst isPower = (t.category==='POWER');\nconst isTX = (t.domain==='TX'||t.intent==='tx_alarm_summary');\n\nfunction uk(r) {\n  if (r.alarmid) return 'aid_'+r.alarmid;\n  if (r.identifierfromprobe) return 'ifp_'+r.identifierfromprobe;\n  if (r.identifier) return 'id_'+r.identifier;\n  return 'cmp_'+[r.sitecode||'',r.alarmname||r.rawalarmname||'',r.firstoccurrence||'',r.networktype||'',r.city||r.location||''].join('_');\n}\n\nlet apiTotal=0;\nconst seen=new Set();\nconst unique=[];\n\nfor (const item of all) {\n  const rawT = Number(item.json.total||0);\n  const recs = item.json.records||[];\n  const itemTot = Math.max(rawT, recs.length);\n  apiTotal += itemTot;\n  for (const r of recs) {\n    const k = uk(r);\n    if (!seen.has(k)) { seen.add(k); unique.push(r); }\n  }\n}\n\nconst dedupedTotal = unique.length;\nconst finalTotal = co ? apiTotal : dedupedTotal;\n\nconst fl=[];\nconst loc = t.region_label||t.location_resolved||'';\nif (loc)              fl.push('  📍 Location  : '+loc);\nif (t.office_resolved)fl.push('  🏢 FM Office : '+t.office_resolved);\nif (t.category)       fl.push('  📂 Category  : '+t.category);\nif (isSiteDown)       fl.push('  🔴 Site Down : Yes');\nif (isPower)          fl.push('  ⚡ Power Off : Yes');\nif (isTX)             fl.push('  🌐 TX Domain : Yes');\nif (t.isvip==='Yes')  fl.push('  ⭐ VIP Only  : Yes');\nif (t.vendor)         fl.push('  🏭 Vendor    : '+t.vendor);\nif (t.technology||t.networktype) fl.push('  📡 Network   : '+(t.technology||t.networktype));\nif (t.sitepriority)  fl.push('  🎯 Priority  : '+t.sitepriority);\nif (t.standardalarmseverity) fl.push('  🔔 Severity  : '+t.standardalarmseverity);\nif (t.acknowledged)  fl.push('  ✅ Ack       : '+t.acknowledged);\nif (t.sitecode)      fl.push('  🔍 Site Code : '+t.sitecode);\nif (t.isrootne==='Yes') fl.push('  🌳 Root NE   : Yes');\n\nconst W=46;\nconst SEP='━'.repeat(W);\nconst hr='─'.repeat(W);\n\nfunction buildNameGroups(records) {\n  const g={};\n  for (const r of records) {\n    const k=r.alarmname||r.rawalarmname||'Unknown';\n    const cnt=Number(r.tally||r.count||r.occurrences||1);\n    g[k]=(g[k]||0)+cnt;\n  }\n  return Object.entries(g).sort((a,b)=>b[1]-a[1]);\n}\n\nfunction barLine(label,count,maxV) {\n  const lb=label.length>28?label.slice(0,27)+'…':label.padEnd(28,' ');\n  const cn=String(count).padStart(5,' ');\n  const barLen=maxV>0?Math.round((count/maxV)*10):0;\n  const bar='█'.repeat(barLen)+'░'.repeat(10-barLen);\n  return `  ${lb} ${cn}  ${bar}`;\n}\n\nlet reply=`📡 NOC Report — ${t.start_local}\\n`;\nreply+=`   Period  : ${t.start_local.slice(11)} → ${t.end_local.slice(11)}\\n`;\nreply+=SEP+'\\n';\nif (fl.length) {\n  reply+='🔎 Filters:\\n'+fl.join('\\n')+'\\n';\n  reply+=hr+'\\n';\n}\nreply+=`📊 TOTAL  : ${finalTotal} alarm${finalTotal!==1?'s':''}\\n`;\nreply+=hr+'\\n';\n\nif (unique.length>0) {\n  const nameGroups=buildNameGroups(unique);\n  const groupTotal=nameGroups.reduce((s,[,v])=>s+v,0);\n  if (isSiteDown&&!co) {\n    const top=Math.min(15,unique.length);\n    reply+=`🏗️  Top ${top} Affected Sites:\\n\\n`;\n    reply+='  #   Code           Tech   Vendor\\n';\n    reply+='  '+'─'.repeat(38)+'\\n';\n    for (let i=0;i<top;i++) {\n      const r=unique[i];\n      const n=String(i+1).padStart(2);\n      const sc=(r.sitecode||r.sitename||'?').padEnd(14);\n      const tc=(r.networktype||'?').padEnd(6);\n      const vn=(r.vendor||'?');\n      reply+=`  ${n}. ${sc} ${tc}  ${vn}\\n`;\n    }\n    if (dedupedTotal>top) reply+=`\\n  ... and ${dedupedTotal-top} more sites\\n`;\n  } else {\n    const label=isPower?'⚡ By Alarm Type:':isTX?'🌐 By TX Alarm:':'📋 By Alarm Name:';\n    reply+=label+'\\n';\n    const maxV=nameGroups[0]?.[1]||1;\n    for (const [k,v] of nameGroups) reply+=barLine(k,v,maxV)+'\\n';\n    if (apiTotal>groupTotal) reply+=`\\n  ℹ️  Based on ${unique.length} of ${apiTotal} records\\n`;\n  }\n}\n\nreply+=SEP;\n\nreturn [{ json: { reply, total: finalTotal, api_total: apiTotal, deduped_total: dedupedTotal, _preDedup: all[0]?.json?._preDedup||0 } }];"
+      },
+      "id": "v35-0021-0021-0021-000000000021",
+      "name": "Deduplicate And Format Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3760, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ai = $('Resolve Location').item.json||{};\nconst sql = $('Build SQL').item.json?.sql||'N/A';\nconst sqlRows = $items('Get Alarm Names From Mapping').map(i=>i.json);\nconst tr = $('Build Time Range').item.json||{};\nconst apiPayload = $('Build API Payload').item.json?.payload||{};\nconst meta = $('Build API Payload').item.json?.metadata||{};\nconst normItems = $('Normalize And Post Filter').all ? $('Normalize And Post Filter').all() : [];\nconst afterVendor = normItems[0]?.json?.records?.length||0;\nconst afterTech = afterVendor;\nconst fmtItems = $('Deduplicate And Format Reply').all ? $('Deduplicate And Format Reply').all() : [];\nconst fmtJson = fmtItems[0]?.json||{};\nconst finalTotal = fmtJson.total||0;\nconst dedupedTotal = fmtJson.deduped_total||0;\nconst apiTotal = fmtJson.api_total||0;\nconst finalReply = fmtJson.reply||'(none)';\nconst now = new Date().toISOString();\n\nconst debug = {\n  '1_user_request':      { question: ai.user_question||'', debug_mode: ai.debugMode||false, timestamp: now },\n  '2_ai_raw_output':     { raw: ai._aiRaw||'(not captured)' },\n  '3_ai_interpretation': { mode: ai.mode, intent: ai.intent, category: ai.category||'', geo_type: ai.geo_type||'none', technology: ai.technology||'', filters: { vendor: ai.vendor||'', severity: ai.severity||'', isvip: ai.isvip||'', sitedownflag: ai.sitedownflag||'', sitepoweroff: ai.sitepoweroff||'', domain: ai.domain||'' } },\n  '4_geography':         { region_input: ai.region_input||'', office_input: ai.office_input||'', geo_type: ai.geo_type||'none', location_resolved: ai.location_resolved||'', office_resolved: ai.office_resolved||'' },\n  '5_sql_mapping':       { sql_executed: sql, rows_returned: sqlRows.length, alarm_names: sqlRows.map(r=>r.alarm_name).filter(Boolean) },\n  '6_time_range':        { start_local: tr.start_local||'', end_local: tr.end_local||'', api_type: tr.type||0 },\n  '7_api_payload':       { sent: apiPayload },\n  '8_api_response':      { total: apiTotal, records_returned: afterVendor },\n  '9_post_filter_dedup': { after_vendor_filter: afterVendor, after_tech_filter: afterTech, after_dedup: dedupedTotal },\n  '10_count_logic':      { count_only: meta.count_only||false, final_total: finalTotal },\n  '11_final_reply':      { preview: finalReply.slice(0,200) }\n};\n\nreturn { reply: finalReply, total: finalTotal, debug };"
+      },
+      "id": "v35-0022-0022-0022-000000000022",
+      "name": "Build Debug Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3960, -400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" }
+            ]
+          }
+        }
+      },
+      "id": "v35-0023-0023-0023-000000000023",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [4160, -400]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook":                      { "main": [[{ "node": "Extract Message",             "type": "main", "index": 0 }]] },
+    "Extract Message":              { "main": [[{ "node": "AI Agent",                    "type": "main", "index": 0 }]] },
+    "Ollama Chat Model":            { "ai_languageModel": [[{ "node": "AI Agent",        "type": "ai_languageModel", "index": 0 }]] },
+    "Window Buffer Memory":         { "ai_memory":        [[{ "node": "AI Agent",        "type": "ai_memory",        "index": 0 }]] },
+    "AI Agent":                     { "main": [[{ "node": "Parse Agent Output",          "type": "main", "index": 0 }]] },
+    "Parse Agent Output":           { "main": [[{ "node": "Is Free Chat?",               "type": "main", "index": 0 }]] },
+    "Is Free Chat?":                { "main": [[{ "node": "Route IF",                    "type": "main", "index": 0 }]] },
+    "Route IF": {
+      "main": [
+        [{ "node": "Free Chat Handler",              "type": "main", "index": 0 }],
+        [{ "node": "Resolve Location",               "type": "main", "index": 0 }]
+      ]
+    },
+    "Free Chat Handler":            { "main": [[{ "node": "Respond to Webhook (Free)",          "type": "main", "index": 0 }]] },
+    "Resolve Location":             { "main": [[{ "node": "Route By Mode",                      "type": "main", "index": 0 }]] },
+    "Route By Mode": {
+      "main": [
+        [{ "node": "Not Connected Placeholder",      "type": "main", "index": 0 }],
+        [{ "node": "Build SQL",                      "type": "main", "index": 0 }]
+      ]
+    },
+    "Not Connected Placeholder":    { "main": [[{ "node": "Respond to Webhook (Not Connected)", "type": "main", "index": 0 }]] },
+    "Build SQL":                    { "main": [[{ "node": "Get Alarm Names From Mapping",        "type": "main", "index": 0 }]] },
+    "Get Alarm Names From Mapping": { "main": [[{ "node": "Build Time Range",                   "type": "main", "index": 0 }]] },
+    "Build Time Range":             { "main": [[{ "node": "Build API Payload",                   "type": "main", "index": 0 }]] },
+    "Build API Payload":            { "main": [[{ "node": "Call Alarm API",                      "type": "main", "index": 0 }]] },
+    "Call Alarm API":               { "main": [[{ "node": "Normalize And Post Filter",           "type": "main", "index": 0 }]] },
+    "Normalize And Post Filter":    { "main": [[{ "node": "Deduplicate And Format Reply",        "type": "main", "index": 0 }]] },
+    "Deduplicate And Format Reply": { "main": [[{ "node": "Build Debug Response",                "type": "main", "index": 0 }]] },
+    "Build Debug Response":         { "main": [[{ "node": "Respond to Webhook",                  "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "noc-ai-v35-webhook-001",
+  "meta": {
+    "instanceId": "ff02306f19a73e963e5e9909ae18cd9bc7c89315f1ee53cca015f45d73dd622b"
+  },
+  "id": "NOCAISQLAgentV35Webhook",
+  "tags": []
+}

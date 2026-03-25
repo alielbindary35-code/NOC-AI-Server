@@ -36,11 +36,35 @@ def load_data(custom_path=None):
         path = custom_path
     else:
         path = os.path.join(os.path.dirname(__file__), '..', 'context', '3months.txt')
+        if not os.path.exists(path):
+            # Try alternate default
+            alt_path = os.path.join(os.path.dirname(__file__), '..', 'context', 'mega_data.json')
+            if os.path.exists(alt_path):
+                path = alt_path
         
     print(f"[DATA] Loading data from: {path}")
-    with open(path, 'r', encoding='utf-8') as f:
-        raw = json.load(f)
-    DATA = raw.get('result', raw.get('data', []))
+    if not os.path.exists(path):
+        print(f"[ERROR] Data file not found: {path}")
+        DATA = []
+        return
+        
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+        
+        if isinstance(raw, list):
+            DATA = raw
+        elif isinstance(raw, dict):
+            DATA = raw.get('result', raw.get('data', raw.get('records', [])))
+            # If still not found but it's a dict, maybe the dict itself is the record? Unlikely for NOC.
+            if not isinstance(DATA, list):
+                DATA = [raw]
+        else:
+            DATA = []
+    except Exception as e:
+        print(f"[ERROR] Failed to parse JSON: {e}")
+        DATA = []
+        return
     
     # Normalize key fields to ensure consistent filtering
     for r in DATA:

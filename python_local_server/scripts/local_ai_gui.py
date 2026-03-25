@@ -23,16 +23,21 @@ class LocalAIServerGUI:
         # Support PyInstaller Frozen EXE
         if getattr(sys, 'frozen', False):
             base_path = os.path.dirname(sys.executable)
-            p1 = os.path.join(base_path, 'python_local_server', 'context', 'mega_data.json')
-            p2 = os.path.join(base_path, '..', 'context', 'mega_data.json')
-            if os.path.exists(p1):
-                self.current_data_source = p1
-            elif os.path.exists(p2):
-                self.current_data_source = p2
-            else:
-                self.current_data_source = os.path.join(base_path, 'mega_data.json')
+            p1 = os.path.join(base_path, 'python_local_server', 'context', '3months.txt')
+            p2 = os.path.join(base_path, '..', 'context', '3months.txt')
+            p3 = os.path.join(base_path, 'python_local_server', 'context', 'mega_data.json')
+            if os.path.exists(p1): self.current_data_source = p1
+            elif os.path.exists(p2): self.current_data_source = p2
+            elif os.path.exists(p3): self.current_data_source = p3
+            else: self.current_data_source = os.path.join(base_path, '3months.txt')
         else:
-            self.current_data_source = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'context', 'mega_data.json'))
+            # First try 3months.txt
+            p = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'context', '3months.txt'))
+            if not os.path.exists(p):
+                # Then try mega_data.json
+                p_alt = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'context', 'mega_data.json'))
+                if os.path.exists(p_alt): p = p_alt
+            self.current_data_source = p
         
         # Load data initially
         try:
@@ -65,7 +70,36 @@ class LocalAIServerGUI:
         self.name_entry.bind('<Return>', lambda e: self.start_test())
         self.name_entry.focus()
         
-        ttk.Button(self.welcome_frame, text="▶ Start Test Session", command=self.start_test).pack(pady=30)
+        ttk.Button(self.welcome_frame, text="▶ Start Test Session", command=self.start_test).pack(pady=10)
+        
+        # Data source selection in welcome screen
+        ttk.Separator(self.welcome_frame, orient='horizontal').pack(fill=tk.X, pady=20)
+        
+        ds_frame = ttk.Frame(self.welcome_frame)
+        ds_frame.pack(fill=tk.X)
+        
+        ttk.Label(ds_frame, text="Current Data Source:").pack(side=tk.LEFT)
+        self.welcome_lbl_source = ttk.Label(ds_frame, text=os.path.basename(self.current_data_source), foreground="blue")
+        self.welcome_lbl_source.pack(side=tk.LEFT, padx=10)
+        
+        ttk.Button(ds_frame, text="Change Data Source (JSON)", command=self.change_data_source_welcome).pack(side=tk.RIGHT)
+
+    def change_data_source_welcome(self):
+        file_path = filedialog.askopenfilename(
+            title="Select Data Source",
+            filetypes=[("JSON Files", "*.txt *.json"), ("All Files", "*.*")]
+        )
+        if not file_path:
+            return
+            
+        try:
+            noc_server.load_data(file_path)
+            self.current_data_source = file_path
+            self.data_status = f"Loaded: {os.path.basename(file_path)} ({len(noc_server.DATA):,} records)"
+            self.welcome_lbl_source.config(text=os.path.basename(file_path))
+            messagebox.showinfo("Success", f"Data source changed successfully!\nRecords: {len(noc_server.DATA):,}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load data: {e}")
 
     def start_test(self):
         name = self.name_entry.get().strip()

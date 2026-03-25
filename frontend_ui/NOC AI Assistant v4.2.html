@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>e& NOC AI Operations Center v4.2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #f4f6fb; --bg-surface: #ffffff; --bg-card: #f0f2f8;
+            --bg-input: #f7f8fc; --border: #e2e6f0; --accent: #e60000;
+            --accent-dim: rgba(230,0,0,0.08); --accent-glow: rgba(230,0,0,0.25);
+            --text-primary: #111827; --text-muted: #6b7280; --text-dim: #9ca3af;
+            --user-bg: linear-gradient(135deg,#e60000 0%,#c20000 100%);
+            --bot-bg: #ffffff; --shadow-sm: 0 1px 4px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.08); --debug-bg: #0f172a;
+            --debug-text: #94a3b8; --green: #16a34a; --blue: #2563eb;
+            --orange: #d97706; --purple: #7c3aed;
+            --mode-incident: #e60000; --mode-complaint: #d97706;
+            --mode-performance: #2563eb; --mode-reporting: #7c3aed;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter','Segoe UI',sans-serif; background: var(--bg-base); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        .header { height: 60px; background: var(--bg-surface); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; box-shadow: var(--shadow-md); z-index: 10; position: relative; }
+        .header::after { content:''; position:absolute; bottom:-2px; left:0; right:0; height:3px; background:linear-gradient(90deg,transparent 0%,var(--accent) 30%,var(--accent) 70%,transparent 100%); opacity:.9; }
+        .menu-btn { font-size:18px; cursor:pointer; color:var(--text-muted); margin-right:14px; padding:6px 8px; border-radius:6px; transition:background .2s,color .2s; line-height:1; background:none; border:none; }
+        .menu-btn:hover { background:var(--bg-card); color:var(--text-primary); }
+        .logo { font-size:20px; font-weight:800; color:var(--accent); }
+        .logo span { color:var(--text-primary); font-weight:700; }
+        .app-title { font-size:13px; color:var(--text-muted); font-weight:500; padding-left:12px; margin-left:12px; border-left:2px solid var(--border); }
+        .header-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+        .status-dot { width:7px; height:7px; background:var(--green); border-radius:50%; box-shadow:0 0 6px var(--green); animation:pulse-dot 2s infinite; }
+        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.45} }
+        .customer-badge { font-size:12px; font-weight:600; color:var(--text-muted); background:var(--bg-card); border:1px solid var(--border); padding:4px 12px; border-radius:16px; }
+        .customer-badge b { color:var(--accent); }
+        .history-btn { display:flex; align-items:center; gap:5px; padding:5px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:16px; font-size:12px; font-weight:600; color:var(--text-muted); cursor:pointer; transition:all .2s; font-family:'Inter',sans-serif; }
+        .history-btn:hover { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
+        .badge-count { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; background:var(--accent); color:white; font-size:10px; font-weight:700; border-radius:9px; padding:0 5px; }
+        .debug-toggle { display:flex; align-items:center; gap:5px; padding:5px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:16px; font-size:12px; font-weight:600; color:var(--text-muted); cursor:pointer; transition:all .2s; font-family:'Inter',sans-serif; }
+        .debug-toggle.active { background:#1e293b; color:#38bdf8; border-color:#0ea5e9; }
+        .debug-toggle:hover { background:rgba(37,99,235,.08); border-color:var(--blue); color:var(--blue); }
+
+        .layout { display:flex; flex:1; overflow:hidden; }
+
+        /* SIDEBAR */
+        .sidebar { width:250px; background:var(--bg-surface); border-right:1px solid var(--border); padding:14px 10px; display:flex; flex-direction:column; gap:3px; flex-shrink:0; overflow-y:auto; box-shadow:var(--shadow-sm); transition:transform .3s ease,width .3s ease,padding .3s ease; }
+        .sidebar.collapsed { transform:translateX(-100%); width:0; padding:0; overflow:hidden; }
+        .sidebar::-webkit-scrollbar { width:3px; }
+        .sidebar::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+        .sb-label { font-size:10px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.7px; padding:10px 8px 4px; }
+        .sec-hdr { display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-radius:7px; cursor:pointer; user-select:none; transition:background .15s; }
+        .sec-hdr:hover { background:var(--bg-card); }
+        .sec-title { font-size:12px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; }
+        .sec-arr { font-size:9px; color:var(--text-dim); transition:transform .2s; display:inline-block; }
+        .sec-arr.open { transform:rotate(90deg); }
+        .sec-body { display:flex; flex-direction:column; gap:3px; overflow:hidden; max-height:500px; transition:max-height .25s ease,opacity .2s ease; opacity:1; }
+        .sec-body.hidden { max-height:0; opacity:0; pointer-events:none; }
+        .mode-badge { font-size:9px; font-weight:700; padding:2px 6px; border-radius:10px; white-space:nowrap; }
+        .mb-incident   { background:rgba(230,0,0,.1);    color:var(--mode-incident);   }
+        .mb-complaint  { background:rgba(217,119,6,.1);  color:var(--mode-complaint);  }
+        .mb-performance{ background:rgba(37,99,235,.1);  color:var(--mode-performance);}
+        .mb-reporting  { background:rgba(124,58,237,.1); color:var(--mode-reporting);  }
+        .qbtn { width:100%; padding:7px 10px; background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary); border-radius:7px; cursor:pointer; font-size:12px; font-family:'Inter',sans-serif; font-weight:500; text-align:left; transition:all .15s ease; display:flex; align-items:center; gap:7px; box-shadow:var(--shadow-sm); }
+        .qbtn .qi { font-size:13px; flex-shrink:0; }
+        .qbtn:hover { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); transform:translateX(2px); box-shadow:0 2px 8px var(--accent-glow); }
+
+        /* CHAT */
+        .chat-container { flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-base); }
+        .messages { flex:1; padding:24px 32px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; scroll-behavior:smooth; }
+        .messages::-webkit-scrollbar { width:4px; }
+        .messages::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+        .welcome { text-align:center; padding:50px 20px; animation:fi .5s ease; }
+        .welcome-icon { font-size:48px; margin-bottom:16px; display:block; }
+        .welcome h2 { font-size:24px; font-weight:700; margin-bottom:8px; }
+        .welcome h2 .r { color:var(--accent); }
+        .welcome p { color:var(--text-muted); font-size:14px; line-height:1.7; max-width:460px; margin:0 auto; }
+        .welcome .chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:20px; }
+        .welcome .chip { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-muted); transition:all .15s; font-family:'Inter',sans-serif; }
+        .welcome .chip:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+        @keyframes fi { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .msg-row { display:flex; gap:10px; animation:fi .25s ease; }
+        .msg-row.user { flex-direction:row-reverse; }
+        .avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; margin-top:2px; }
+        .avatar.bot-av { background:var(--bg-card); border:1px solid var(--border); box-shadow:var(--shadow-sm); }
+        .avatar.user-av { background:var(--accent); }
+        .msg-content { display:flex; flex-direction:column; gap:4px; max-width:72%; }
+        .bubble { padding:11px 15px; border-radius:14px; font-size:13.5px; line-height:1.6; }
+        .bubble.user { background:var(--user-bg); border-radius:14px 4px 14px 14px; color:#fff; box-shadow:0 4px 14px var(--accent-glow); }
+        .bubble.bot { background:var(--bot-bg); border:1px solid var(--border); border-radius:4px 14px 14px 14px; color:var(--text-primary); box-shadow:var(--shadow-sm); white-space:pre-wrap; font-family:'Courier New',Courier,monospace; font-size:12.5px; line-height:1.55; letter-spacing:.01em; }
+        .bubble.bot.not-connected { border-color:rgba(217,119,6,.3); background:rgba(217,119,6,.04); }
+        .dbg-toggle { align-self:flex-start; background:transparent; border:1px solid #334155; color:#64748b; font-size:11px; font-family:'Inter',sans-serif; padding:3px 10px; border-radius:6px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:4px; }
+        .dbg-toggle:hover { background:#1e293b; color:#94a3b8; border-color:#475569; }
+        .dbg-toggle.on { background:#1e293b; color:#38bdf8; border-color:#0ea5e9; }
+        .dbg-panel { background:var(--debug-bg); color:var(--debug-text); font-family:'Courier New',monospace; font-size:11px; line-height:1.65; border-radius:10px; overflow:hidden; border:1px solid #1e293b; animation:fi .2s ease; }
+        .dbg-panel.hide { display:none; }
+        .dbg-section { padding:8px 14px; border-bottom:1px solid rgba(255,255,255,.05); }
+        .dbg-section:last-child { border-bottom:none; }
+        .dbg-section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#38bdf8; margin-bottom:4px; display:flex; align-items:center; gap:5px; }
+        .dbg-section-body { white-space:pre; overflow-x:auto; max-height:120px; overflow-y:auto; }
+        .dbg-section-body::-webkit-scrollbar { width:3px; height:3px; }
+        .dbg-section-body::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+        .typing-row { display:flex; gap:10px; }
+        .typing { display:flex; gap:5px; padding:12px 16px; background:var(--bot-bg); border:1px solid var(--border); border-radius:4px 14px 14px 14px; box-shadow:var(--shadow-sm); }
+        .typing span { width:6px; height:6px; background:var(--text-dim); border-radius:50%; animation:bounce 1.2s infinite; }
+        .typing span:nth-child(2) { animation-delay:.2s; }
+        .typing span:nth-child(3) { animation-delay:.4s; }
+        @keyframes bounce { 0%,80%,100%{transform:scale(.8);opacity:.4} 40%{transform:scale(1.2);opacity:1} }
+
+        /* INPUT */
+        .input-area { padding:14px 20px; background:var(--bg-surface); border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; box-shadow:0 -2px 8px rgba(0,0,0,.04); }
+        .input-wrap { flex:1; display:flex; align-items:center; background:var(--bg-input); border:1.5px solid var(--border); border-radius:10px; padding:0 14px; transition:border-color .2s,box-shadow .2s; }
+        .input-wrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+        .input-wrap input { flex:1; background:transparent; border:none; outline:none; color:var(--text-primary); font-size:13.5px; font-family:'Inter',sans-serif; padding:11px 0; }
+        .input-wrap input::placeholder { color:var(--text-dim); }
+        .send-btn { padding:10px 20px; background:var(--accent); border:none; border-radius:8px; color:white; cursor:pointer; font-weight:600; font-size:13px; font-family:'Inter',sans-serif; transition:all .2s; display:flex; align-items:center; gap:5px; flex-shrink:0; box-shadow:0 2px 8px var(--accent-glow); }
+        .send-btn:hover { background:#c20000; transform:translateY(-1px); box-shadow:0 4px 16px var(--accent-glow); }
+        .send-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
+        /* HISTORY MODAL */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; display:flex; align-items:center; justify-content:center; animation:fi .15s ease; }
+        .modal-overlay.hide { display:none; }
+        .history-modal { background:var(--bg-surface); border-radius:14px; width:720px; max-width:95vw; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 16px 50px rgba(0,0,0,.18); animation:fi .2s ease; }
+        .modal-hdr { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+        .modal-hdr h3 { font-size:16px; font-weight:700; }
+        .modal-hdr h3 b { color:var(--accent); }
+        .modal-actions { display:flex; gap:6px; align-items:center; }
+        .exp-btn { padding:6px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--bg-card); color:var(--text-primary); font-family:'Inter',sans-serif; transition:all .2s; }
+        .exp-btn:hover { background:var(--accent); color:white; border-color:var(--accent); }
+        .modal-close { width:28px; height:28px; border-radius:6px; background:var(--bg-card); border:1px solid var(--border); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+        .modal-close:hover { background:var(--accent-dim); color:var(--accent); }
+        .modal-body { flex:1; overflow-y:auto; padding:14px 20px; }
+        .modal-body::-webkit-scrollbar { width:4px; }
+        .modal-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+        .history-empty { text-align:center; padding:50px 20px; color:var(--text-dim); font-size:13px; }
+        .h-entry { border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; transition:box-shadow .2s; }
+        .h-entry:hover { box-shadow:var(--shadow-md); }
+        .h-entry-hdr { padding:10px 14px; background:var(--bg-card); display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+        .he-time { font-size:10px; color:var(--text-dim); white-space:nowrap; margin-top:2px; }
+        .he-content { flex:1; min-width:0; }
+        .he-q { font-size:12.5px; font-weight:600; color:var(--text-primary); margin-bottom:3px; }
+        .he-r { font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .he-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:12px; white-space:nowrap; flex-shrink:0; }
+        .b-incident   { background:rgba(230,0,0,.08);    color:var(--mode-incident);   border:1px solid rgba(230,0,0,.15);    }
+        .b-complaint  { background:rgba(217,119,6,.08);  color:var(--mode-complaint);  border:1px solid rgba(217,119,6,.15);  }
+        .b-performance{ background:rgba(37,99,235,.08);  color:var(--mode-performance);border:1px solid rgba(37,99,235,.15);  }
+        .b-reporting  { background:rgba(124,58,237,.08); color:var(--mode-reporting);  border:1px solid rgba(124,58,237,.15); }
+        .b-chat       { background:rgba(22,163,74,.08);  color:var(--green);           border:1px solid rgba(22,163,74,.15);  }
+        .h-entry-dbg { padding:12px 14px; background:var(--debug-bg); font-family:'Courier New',monospace; font-size:11px; color:var(--debug-text); white-space:pre; overflow-x:auto; max-height:200px; overflow-y:auto; border-top:1px solid #1e293b; }
+        .h-entry-dbg.hide { display:none; }
+        .h-entry-dbg::-webkit-scrollbar { width:3px; height:3px; }
+        .h-entry-dbg::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <button class="menu-btn" onclick="toggleSidebar()" title="Toggle Menu">☰</button>
+    <div class="logo">e& <span>NOC</span></div>
+    <div class="app-title">AI Operations Center v4.2</div>
+    <div class="header-right">
+        <button class="debug-toggle" id="debugToggleBtn" onclick="toggleDebugMode()" title="Toggle debug mode">🔍 Debug Off</button>
+        <button class="history-btn" onclick="openHistory()" id="historyBtn">
+            📋 History <span class="badge-count" id="historyCount">0</span>
+        </button>
+        <div class="status-dot" title="AI Online"></div>
+        <div class="customer-badge">Customer: <b>e& Egypt</b></div>
+    </div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+    <div class="sb-label">Quick Queries</div>
+
+    <!-- INCIDENT -->
+    <div class="sec-hdr" onclick="toggleSec('sec-incident')">
+        <span class="sec-title">📡 Incident</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span class="mode-badge mb-incident">INCIDENT</span>
+            <span class="sec-arr" id="arr-sec-incident">▶</span>
+        </div>
+    </div>
+    <div class="sec-body hidden" id="sec-incident">
+        <button class="qbtn" onclick="sendQuick('How many site down today?')"><span class="qi">🔢</span>Count Down Sites</button>
+        <button class="qbtn" onclick="sendQuick('List down sites in alex today')"><span class="qi">📋</span>List Down Sites</button>
+        <button class="qbtn" onclick="sendQuick('How many power alarms today?')"><span class="qi">⚡</span>Power Alarms</button>
+        <button class="qbtn" onclick="sendQuick('How many TX alarms today?')"><span class="qi">🌐</span>TX Alarms</button>
+        <button class="qbtn" onclick="sendQuick('How many VIP site down today?')"><span class="qi">⭐</span>VIP Down Sites</button>
+        <button class="qbtn" onclick="sendQuick('How many cascaded sites today?')"><span class="qi">🔗</span>Cascaded Sites</button>
+        <button class="qbtn" onclick="sendQuick('Show root cause alarms today')"><span class="qi">🌳</span>Root Cause Summary</button>
+    </div>
+
+    <!-- COMPLAINT -->
+    <div class="sec-hdr" onclick="toggleSec('sec-complaint')">
+        <span class="sec-title">📞 Complaint</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span class="mode-badge mb-complaint">COMPLAINT</span>
+            <span class="sec-arr" id="arr-sec-complaint">▶</span>
+        </div>
+    </div>
+    <div class="sec-body hidden" id="sec-complaint">
+        <button class="qbtn" onclick="sendQuick('Last down time for site ALX3480')"><span class="qi">⏬</span>Last Down Time</button>
+        <button class="qbtn" onclick="sendQuick('Last up time for site ALX3480')"><span class="qi">⏫</span>Last Up Time</button>
+        <button class="qbtn" onclick="sendQuick('What is the cell status for site ALX3480?')"><span class="qi">📡</span>Cell Status</button>
+        <button class="qbtn" onclick="sendQuick('Show active alarms on site ALX3480')"><span class="qi">🔔</span>Active Alarms on Site</button>
+        <button class="qbtn" onclick="sendQuick('Last intervention on site ALX3480')"><span class="qi">🔧</span>Last Intervention</button>
+    </div>
+
+    <!-- PERFORMANCE -->
+    <div class="sec-hdr" onclick="toggleSec('sec-performance')">
+        <span class="sec-title">📈 Performance</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span class="mode-badge mb-performance">PERF</span>
+            <span class="sec-arr" id="arr-sec-performance">▶</span>
+        </div>
+    </div>
+    <div class="sec-body hidden" id="sec-performance">
+        <button class="qbtn" onclick="sendQuick('Traffic trend for the last 7 days')"><span class="qi">📊</span>Traffic Trend</button>
+        <button class="qbtn" onclick="sendQuick('Application traffic in alex last week')"><span class="qi">📱</span>Application Traffic</button>
+        <button class="qbtn" onclick="sendQuick('KPI summary for alex today')"><span class="qi">📉</span>KPI Summary</button>
+        <button class="qbtn" onclick="sendQuick('AVA trend for the last 7 days')"><span class="qi">📐</span>AVA Trend</button>
+        <button class="qbtn" onclick="sendQuick('When did degradation start in cairo?')"><span class="qi">⏱️</span>Degradation Start Time</button>
+    </div>
+
+    <!-- REPORTING -->
+    <div class="sec-hdr" onclick="toggleSec('sec-reporting')">
+        <span class="sec-title">📊 Reporting</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span class="mode-badge mb-reporting">REPORT</span>
+            <span class="sec-arr" id="arr-sec-reporting">▶</span>
+        </div>
+    </div>
+    <div class="sec-body hidden" id="sec-reporting">
+        <button class="qbtn" onclick="sendQuick('Daily traffic total for today')"><span class="qi">📅</span>Daily Traffic</button>
+        <button class="qbtn" onclick="sendQuick('Daily AVA report for today')"><span class="qi">📅</span>Daily AVA</button>
+        <button class="qbtn" onclick="sendQuick('VIP AVA report for today')"><span class="qi">⭐</span>VIP AVA</button>
+        <button class="qbtn" onclick="sendQuick('Site details summary for alex')"><span class="qi">🗂️</span>Site Details</button>
+        <button class="qbtn" onclick="sendQuick('Active alarms summary for this week')"><span class="qi">📋</span>Periodic Active Alarms</button>
+    </div>
+</div>
+
+<!-- CHAT -->
+<div class="chat-container">
+    <div class="messages" id="messages">
+        <div class="welcome" id="welcome">
+            <span class="welcome-icon">🤖</span>
+            <h2><span class="r">e&</span> NOC Operations AI <small style="font-size:14px;color:var(--text-muted);font-weight:500">v4.2</small></h2>
+            <p>Ask me about alarms, sites, regions, or network status.<br>Performance &amp; reporting routing is active — data sources connecting in V3.6.</p>
+            <div class="chips">
+                <button class="chip" onclick="sendQuick('How many site down today?')">🔴 Sites Down</button>
+                <button class="chip" onclick="sendQuick('How many power alarms in delta today?')">⚡ Power / Delta</button>
+                <button class="chip" onclick="sendQuick('How many VIP site down today?')">⭐ VIP Down</button>
+                <button class="chip" onclick="sendQuick('Last down time for site ALX3480')">📞 Complaint</button>
+                <button class="chip" onclick="sendQuick('Traffic trend for the last 7 days')">📈 Performance</button>
+                <button class="chip" onclick="sendQuick('Daily AVA report for today')">📊 Reporting</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-wrap">
+            <input type="text" id="userInput"
+                placeholder="e.g. How many site down in ALEX1? — كم موقع بدون خدمة في اسكندرية؟"
+                onkeydown="if(event.key==='Enter') sendMessage()">
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">Send ➤</button>
+    </div>
+</div>
+
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay hide" id="historyModal" onclick="closeHistoryBg(event)">
+    <div class="history-modal">
+        <div class="modal-hdr">
+            <h3>📋 Conversation <b>History</b></h3>
+            <div class="modal-actions">
+                <button class="exp-btn" onclick="exportHistory('csv')">⬇ CSV</button>
+                <button class="exp-btn" onclick="exportHistory('json')">⬇ JSON</button>
+                <button class="modal-close" onclick="closeHistory()">✕</button>
+            </div>
+        </div>
+        <div class="modal-body" id="historyBody">
+            <div class="history-empty" id="historyEmpty">No history yet. Start asking questions!</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const WH = 'http://localhost:5000/webhook/chat-v35';
+let sidebarOpen = true;
+let history = [];
+let msgCounter = 0;
+let isSending = false;
+let debugModeOn = false;
+
+// Debug sections metadata — icons + labels for each of the 11 keys
+const DBG_SECTIONS = [
+    ['1_user_request',      '❓', 'User Request'],
+    ['2_ai_raw_output',     '🤖', 'AI Raw Output'],
+    ['3_ai_interpretation', '🧠', 'AI Interpretation'],
+    ['4_geography',         '🗺️', 'Geography Resolution'],
+    ['5_sql_mapping',       '🗄️', 'SQL Mapping'],
+    ['6_time_range',        '⏰', 'Time Range'],
+    ['7_api_payload',       '📤', 'API Payload Sent'],
+    ['8_api_response',      '📥', 'API Response'],
+    ['9_post_filter_dedup', '🔍', 'Post-Filter & Dedup'],
+    ['10_count_logic',      '🔢', 'Count Logic'],
+    ['11_final_reply',      '💬', 'Final Reply Preview'],
+];
+
+function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
+}
+
+function toggleSec(id) {
+    const body = document.getElementById(id);
+    const arr = document.getElementById('arr-' + id);
+    const isOpen = !body.classList.contains('hidden');
+    body.classList.toggle('hidden', isOpen);
+    arr.classList.toggle('open', !isOpen);
+}
+
+function toggleDebugMode() {
+    debugModeOn = !debugModeOn;
+    const btn = document.getElementById('debugToggleBtn');
+    btn.textContent = debugModeOn ? '🔍 Debug On' : '🔍 Debug Off';
+    btn.classList.toggle('active', debugModeOn);
+}
+
+function hideWelcome() {
+    const w = document.getElementById('welcome');
+    if (w) w.remove();
+}
+
+function buildDebugPanel(debug, panelId) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dbg-panel hide';
+    wrap.id = panelId;
+    if (!debug || typeof debug !== 'object') {
+        const s = document.createElement('div');
+        s.className = 'dbg-section';
+        s.textContent = JSON.stringify(debug, null, 2);
+        wrap.appendChild(s);
+        return wrap;
+    }
+    for (const [key, icon, label] of DBG_SECTIONS) {
+        if (!(key in debug)) continue;
+        const sec = document.createElement('div');
+        sec.className = 'dbg-section';
+        const title = document.createElement('div');
+        title.className = 'dbg-section-title';
+        title.textContent = icon + ' ' + label;
+        const body = document.createElement('div');
+        body.className = 'dbg-section-body';
+        body.textContent = JSON.stringify(debug[key], null, 2);
+        sec.appendChild(title);
+        sec.appendChild(body);
+        wrap.appendChild(sec);
+    }
+    return wrap;
+}
+
+function addMessage(text, sender, debug) {
+    hideWelcome();
+    const container = document.getElementById('messages');
+    const id = 'msg-' + (++msgCounter);
+    const row = document.createElement('div');
+    row.className = 'msg-row ' + sender;
+    const av = document.createElement('div');
+    av.className = 'avatar ' + (sender === 'user' ? 'user-av' : 'bot-av');
+    av.textContent = sender === 'user' ? '👤' : '🤖';
+    const mc = document.createElement('div');
+    mc.className = 'msg-content';
+    const bub = document.createElement('div');
+    bub.className = 'bubble ' + sender;
+    if (sender === 'bot' && text && text.startsWith('⚠️') && text.includes('not connected')) {
+        bub.classList.add('not-connected');
+    }
+    bub.textContent = text;
+    mc.appendChild(bub);
+    if (sender === 'bot' && debug && typeof debug === 'object') {
+        const btn = document.createElement('button');
+        btn.className = 'dbg-toggle';
+        btn.innerHTML = '🔍 Debug Info';
+        const panelId = 'dbg-' + id;
+        btn.onclick = () => {
+            const p = document.getElementById(panelId);
+            const show = p.classList.contains('hide');
+            p.classList.toggle('hide', !show);
+            btn.classList.toggle('on', show);
+            btn.innerHTML = show ? '🔍 Hide Debug' : '🔍 Debug Info';
+        };
+        mc.appendChild(btn);
+        const dbgPanel = buildDebugPanel(debug, panelId);
+        if (debugModeOn) dbgPanel.classList.remove('hide');
+        mc.appendChild(dbgPanel);
+    }
+    row.appendChild(av);
+    row.appendChild(mc);
+    container.appendChild(row);
+    container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+    hideWelcome();
+    const container = document.getElementById('messages');
+    const row = document.createElement('div');
+    row.className = 'typing-row'; row.id = 'typing-row';
+    const av = document.createElement('div');
+    av.className = 'avatar bot-av'; av.textContent = '🤖';
+    const t = document.createElement('div');
+    t.className = 'typing';
+    t.innerHTML = '<span></span><span></span><span></span>';
+    row.appendChild(av); row.appendChild(t);
+    container.appendChild(row);
+    container.scrollTop = container.scrollHeight;
+}
+function removeTyping() {
+    const t = document.getElementById('typing-row');
+    if (t) t.remove();
+}
+
+async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    if (!text || isSending) return;
+    input.value = '';
+    await doSend(text);
+}
+
+async function sendQuick(text) {
+    if (isSending) return;
+    await doSend(text);
+}
+
+async function doSend(text) {
+    isSending = true;
+    document.getElementById('sendBtn').disabled = true;
+    addMessage(text, 'user');
+    showTyping();
+    try {
+        const resp = await fetch(WH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, debug_mode: debugModeOn })
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        removeTyping();
+        const reply = data.reply || data.answer || 'No response';
+        const debug = data.debug || null;
+        addMessage(reply, 'bot', debug);
+        trackHistory(text, reply, debug);
+    } catch(e) {
+        removeTyping();
+        addMessage('⚠️ Error: ' + e.message + '\nMake sure n8n V3.5 workflow is Active on path /webhook/chat-v35', 'bot');
+    }
+    isSending = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('userInput').focus();
+}
+
+function getModeBadge(debug) {
+    if (!debug) return ['b-chat', '💬 Chat'];
+    if (debug.type === 'free_chat') return ['b-chat', '💬 Chat'];
+    const mode = debug['3_ai_interpretation']?.mode || '';
+    const modeMap = {
+        incident:    ['b-incident',    '📡 Incident'],
+        complaint:   ['b-complaint',   '📞 Complaint'],
+        performance: ['b-performance', '📈 Performance'],
+        reporting:   ['b-reporting',   '📊 Reporting'],
+    };
+    return modeMap[mode] || ['b-chat', '💬 Chat'];
+}
+
+function trackHistory(question, reply, debug) {
+    history.push({ id: history.length+1, time: new Date().toISOString(), timeLocal: new Date().toLocaleString('en-GB'), question, reply, debug });
+    document.getElementById('historyCount').textContent = history.length;
+}
+
+function openHistory() {
+    document.getElementById('historyModal').classList.remove('hide');
+    renderHistory();
+}
+function closeHistory() { document.getElementById('historyModal').classList.add('hide'); }
+function closeHistoryBg(e) { if (e.target===document.getElementById('historyModal')) closeHistory(); }
+
+function renderHistory() {
+    const body = document.getElementById('historyBody');
+    const empty = document.getElementById('historyEmpty');
+    if (history.length===0) { empty.style.display='block'; return; }
+    empty.style.display='none';
+    body.innerHTML='';
+    for (const h of [...history].reverse()) {
+        const [badgeClass, badgeText] = getModeBadge(h.debug);
+        const short = (h.reply||'').replace(/\n/g,' ').slice(0,100)+(h.reply?.length>100?'…':'');
+        const eid = 'he-'+h.id;
+        const div = document.createElement('div');
+        div.className = 'h-entry';
+        div.innerHTML = `
+            <div class="h-entry-hdr" onclick="document.getElementById('${eid}').classList.toggle('hide')">
+                <div class="he-time">#${h.id}<br>${h.timeLocal}</div>
+                <div class="he-content">
+                    <div class="he-q">${esc(h.question)}</div>
+                    <div class="he-r">${esc(short)}</div>
+                </div>
+                <span class="he-badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="h-entry-dbg hide" id="${eid}">${h.debug ? JSON.stringify(h.debug,null,2) : '(no debug)'}</div>`;
+        body.appendChild(div);
+    }
+}
+
+function exportHistory(fmt) {
+    if (!history.length) { alert('No history!'); return; }
+    const ts = new Date().toISOString().slice(0,10);
+    if (fmt==='json') {
+        dl(new Blob([JSON.stringify(history,null,2)],{type:'application/json'}),`noc_v35_history_${ts}.json`);
+    } else {
+        const hdr=['#','Time','Question','Reply','Mode','Intent','GeoType','Location','Office','Total'];
+        const rows=history.map(h=>[
+            h.id,'"'+h.timeLocal+'"',
+            '"'+(h.question||'').replace(/"/g,'""')+'"',
+            '"'+(h.reply||'').replace(/\n/g,' ').replace(/"/g,'""').slice(0,200)+'"',
+            h.debug?.['3_ai_interpretation']?.mode||'',
+            h.debug?.['3_ai_interpretation']?.intent||'',
+            h.debug?.['4_geography']?.geo_type||'',
+            h.debug?.['4_geography']?.location_resolved||'',
+            h.debug?.['4_geography']?.office_resolved||'',
+            h.debug?.['10_count_logic']?.final_total??''
+        ]);
+        dl(new Blob([[hdr,...rows].map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'}),`noc_v35_history_${ts}.csv`);
+    }
+}
+function dl(blob,name) {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeHistory(); });
+</script>
+</body>
+</html>
