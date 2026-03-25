@@ -1,0 +1,81 @@
+NOC AI Agent V3.2 — Implementation Plan (Updated)
+====================================================
+
+[REQUIRED HEADERS - always sent]
+==================================
+start     = 0
+limit     = 1000  (NOT 100)
+starttime = unix ms start
+endtime   = unix ms end
+type      = 1
+
+[OPTIONAL HEADERS - sent only if user asked]
+=============================================
+location              -> if user mentions region (alex/delta/cairo...)
+vendor                -> if user mentions Huawei/Nokia/ZTE
+networktype           -> if user mentions 2G/3G/4G/5G
+sitedownflag          -> if user asks about site down
+sitepoweroff          -> if user asks about power off
+alarmname             -> if category is NOT DIRECT__
+standardalarmseverity -> if user mentions severity
+acknowledged          -> if user asks about ack status
+sitecode              -> if user mentions site code
+isvip                 -> if user asks about VIP sites
+domain                -> if user asks about domain (TX/MW/Power)
+
+[KEY FINDINGS]
+==============
+1. Multiple alarms per category+vendor+tech:
+   - SITE_DOWN + 4G + Huawei -> SQL returns 2 alarms:
+     * Enodeb Out of service
+     * Ne is disconnected
+   -> 2 API calls (one per alarm) — CURRENT CODE IS CORRECT
+
+2. Delta / Upper -> Pipe-separated location (1 API call):
+   delta         -> location: "East Delta|West Delta"
+   upper         -> location: "North Upper|South Upper"
+   upper egypt   -> location: "North Upper|South Upper"
+   Service script splits by | => creates IN condition for both
+
+3. Date defaults to TODAY if not specified:
+   - No time mentioned   -> today 00:00:00 to 23:59:59
+   - "last 2 days"       -> now minus 2 days
+   - "last week"         -> now minus 7 days
+   - "yesterday"         -> yesterday full day
+
+[WORKFLOW CHANGES NEEDED]
+=========================
+NODE 1: Resolve Location
+- delta -> location: "East Delta|West Delta"
+- upper / upper egypt -> location: "North Upper|South Upper"
+- Add fuzzy matching for typos (dleta->delta, sinii->sinai)
+- Arabic synonyms already in GEO map
+
+NODE 2: Build SQL
+- Add technology filter if networktype is specified:
+  WHERE category='SITE_DOWN' AND vendor='Huawei' AND technology='4G'
+  ** QUESTION: Does ai_alarm_mappings table have 'technology' column?
+  ** If NO -> send all alarms for category+vendor, API filters by networktype
+
+NODE 3: Build Time Range
+- Change: limit: 100  ->  limit: 1000
+
+NODE 4: Build API Payload
+- Remove sub_locations complex loop (replaced by pipe)
+- Add isvip, domain as optional fields
+
+NODE 5: AI Agent System Prompt
+- Add new fields to extract:
+    isvip=    (yes/no/empty)
+    domain=   (2G/3G/4G/5G/TX/MW/Power/empty)
+- Add more examples: delta queries, VIP queries, typo cases
+
+[FM OFFICES MAP - VERIFIED CORRECT]
+=====================================
+Alex      : ALEX1, ALEX2, ALEX3, ALEX4, AlexCore
+Cairo     : Cairo, CairoCore, Downtown, Gesr El Suiz, Giza, Helwan, Mohandesen, OSS, Shorouk, Tagamo3
+East Delta: DOMYAT, DYARBNEAGM, FAKOUS, MANSURA, ZAGAZIK
+West Delta: DAMANHOUR, DELENGAT, KAFR ELSHEIKH, SHEBIN, TANTA
+N. Upper  : ASSIUT, BANISUIEF, DEIR MAWAS, FAYOUM, MENYA, Maghagha
+S. Upper  : ASWAN, Abu simple, EDFO, GERGA, LUXOR, QENA, SOHAG
+Sinai     : ABO REDIES, ARISH, HURGHADA, ISMAILIA, MARSA ALAM, NUWIBA, RASCEDER, SHARM, SUEZ, ZAFRANA

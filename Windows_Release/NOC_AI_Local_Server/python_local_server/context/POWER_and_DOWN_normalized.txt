@@ -1,0 +1,93 @@
+category	technology	vendor	alarm_name	note	source_sheet
+POWER		Huawei	Hybrid DG Failure	-	POWER
+POWER		Huawei	AC Main Failure	-	POWER
+POWER		Huawei	AC mains failure	-	POWER
+POWER		Huawei	AC Power Failure	-	POWER
+POWER		Huawei	Eltek HC Rectifier AC POWER FAILURE	-	POWER
+POWER		Huawei	Emerson HC Rectifier Critical alarm (AC/DC)	-	POWER
+POWER		Huawei	Main Power Failure	-	POWER
+POWER		Huawei	main power failure of Rectifier	-	POWER
+POWER		Huawei	main power failure of rectifier	-	POWER
+POWER		Huawei	main power failure of Rectifier	-	POWER
+POWER		Huawei	AC Panel Main Power	-	POWER
+POWER		Huawei	No AC Input Alarm	-	POWER
+POWER		Huawei	No DC Input Alarm	-	POWER
+POWER		Huawei	Power? shelter Rectifier Ac main failure	-	POWER
+POWER		Huawei	Rectifier failure	-	POWER
+POWER		Huawei	rectifier failure	-	POWER
+POWER		Huawei	Solar Major Batteries Level	-	POWER
+POWER		Huawei	Solar Major Batteries Level	-	POWER
+POWER		Huawei	Rectifier Failure of Second Rectifier	-	POWER
+POWER		Huawei	Rectifier failure	-	POWER
+POWER		Huawei	Main Power Failure of Second Rectifier	-	POWER
+POWER		Huawei	main power failure of Rectifier	-	POWER
+POWER		Huawei	Hierarchical Power Supply Alarm	-	POWER
+POWER		Huawei	EMERSON AC POWER FAILURE	-	POWER
+POWER		Huawei	ALX0009  main power failure	-	POWER
+POWER		Huawei	PSU shutdown alarm	-	POWER
+POWER		Huawei	Mains Input Out of Range	exclude if specific problem is AC Phase Loss or AC under voltage 	POWER
+POWER		Nokia	Huawei OD HC Rectifier AC Failure  alarm	-	POWER
+POWER		Nokia	Ericsson OD HC Rectifier  AC	-	POWER
+POWER		Nokia	Vertiv HC OD AC Rectifier Failure Alarm	-	POWER
+POWER		Nokia	Vertiv HC OD DC Rectifier Failure Alarm	-	POWER
+POWER		Nokia	Vertiv OD HC rectifier module failure	-	POWER
+POWER		Nokia	vertiv AC power rectefire alarm	-	POWER
+POWER		Nokia	vertiv DC rectefire alarm	-	POWER
+POWER		Nokia	Gen Running	-	POWER
+POWER		Nokia	Rectifier minor alarm	-	POWER
+POWER		Nokia	ELETIC rectfauirminor alarm	-	POWER
+POWER		Nokia	ELEtec OD HC Rectifier Module alarm	-	POWER
+POWER		Nokia	Vertiv OD HC Rectifier Main AC Failure	-	POWER
+POWER		Nokia	Ericsson OD HC Rectifier Major alarm	-	POWER
+POWER		Nokia	OD HC Rectefire AC alarm	-	POWER
+POWER		Nokia	Vertiv OD HC rectifier AC failure	-	POWER
+POWER		Nokia	ELTECK OD HC Rectifier Main AC Failure	-	POWER
+POWER		Nokia	rectifier AC failure	-	POWER
+POWER		Nokia	Emerson OD HC Rectifier Critical alarm	-	POWER
+POWER		Nokia	ZTE OD HC Rectifier AC Failure	-	POWER
+POWER		Nokia	Huawei OD HC Rectifier Failure alarm (one PSU Or More)	-	POWER
+POWER		Nokia	main power failure of Rectifier	-	POWER
+POWER		Nokia	Huawei OD HC Rectifier AC Failure	-	POWER
+POWER		Nokia	Ericsson OD HC Rectifier Minor alarm	-	POWER
+POWER		Nokia	Ericsson OD HC rectifier AC Failure	-	POWER
+POWER		Nokia	Rectifier failure	-	POWER
+POWER		ZTE	AC power-cut alarm	OLD system	POWER
+POWER		ZTE	Battery alarm	OLD system	POWER
+POWER		ZTE	PSU alarm	OLD system	POWER
+POWER		ZTE	Rectifier module alarm	OLD system	POWER
+POWER		ZTE	The input voltage is abnormal	OLD system	POWER
+POWER		ZTE	Generator running	OLD system	POWER
+POWER		ZTE	Input power-off	ZTE New system	POWER
+POWER		ZTE	AC power interruption alarm	ZTE New system	POWER
+POWER		ZTE	power AC power OFF	ZTE New system	POWER
+SITE_DOWN	2G	Huawei	OML Fault		DOWN
+SITE_DOWN	2G	Huawei	CSL fault		DOWN
+SITE_DOWN	2G	Nokia	BTS O&M link failure		DOWN
+SITE_DOWN	2G	ZTE	Link between OMM and NE broken		DOWN
+SITE_DOWN	3G	Huawei	NodeB Unavailable		DOWN
+SITE_DOWN	3G	Nokia	WCDMA Base station out of use		DOWN
+SITE_DOWN	3G	ZTE	NodeB is out of service		DOWN
+SITE_DOWN	4G	Huawei	Enodeb Out of service		DOWN
+SITE_DOWN	4G	Huawei	Ne is disconnected		DOWN
+SITE_DOWN	4G	Nokia	NE3SWS agent not responding to requests		DOWN
+SITE_DOWN	4G	ZTE	eNodeB is out of service		DOWN
+SITE_DOWN	5G	Huawei	gNodeB Out of Service		DOWN
+SITE_DOWN	5G	Huawei	Ne is disconnected		DOWN
+SITE_DOWN	5G	Nokia	NE3SWS agent not responding to requests		DOWN
+SITE_DOWN	5G	ZTE	gNodeB DU out-of-service		DOWN
+CELL_DOWN	2G	Huawei	GSM cell out of service		DOWN
+CELL_DOWN	2G	Nokia	BCCH missing		DOWN
+CELL_DOWN	2G	ZTE	Cell interruption alarm		DOWN
+CELL_DOWN	3G	Huawei	UMTS Cell Unavailable		DOWN
+CELL_DOWN	3G	Nokia	WCDMA cell out of use		DOWN
+CELL_DOWN	3G	ZTE	Cell is out of service		DOWN
+CELL_DOWN	4G	Huawei	Cell unavailable		DOWN
+CELL_DOWN	4G	Nokia	Base station Service problem		DOWN
+CELL_DOWN	4G	Nokia	Cell Service Problem		DOWN
+CELL_DOWN	4G	ZTE	LTE cell outage		DOWN
+CELL_DOWN	5G	Huawei	NR DU Cell TRP Unavailable		DOWN
+CELL_DOWN	5G	Huawei	NR DU Cell Unavailable		DOWN
+CELL_DOWN	5G	Huawei	NR Cell Unavailable		DOWN
+CELL_DOWN	5G	Nokia	Base station Service problem		DOWN
+CELL_DOWN	5G	Nokia	Cell Service Problem		DOWN
+CELL_DOWN	5G	ZTE	DU cell out-of-service		DOWN
