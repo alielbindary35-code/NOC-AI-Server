@@ -6,3 +6,8 @@ python_local_server/context/expanded_data.csv
 # Ignore Python cache
 __pycache__/
 *.pyc
+
+# Ignore logs and virtual environments
+logs/
+**/venv/
+.env
