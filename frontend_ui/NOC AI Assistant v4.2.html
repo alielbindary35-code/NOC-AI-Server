@@ -117,6 +117,12 @@
         .send-btn:hover { background:#c20000; transform:translateY(-1px); box-shadow:0 4px 16px var(--accent-glow); }
         .send-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
 
+        /* INTERACTIVE BUTTONS */
+        .bubble-btns { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .b-btn { padding: 6px 12px; background: var(--bg-surface); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .b-btn:hover { background: var(--accent); color: white; }
+        .b-btn.disabled-btn { opacity: 0.5; border-color: var(--text-dim); color: var(--text-dim); cursor: not-allowed; background: transparent; }
+
         /* HISTORY MODAL */
         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; display:flex; align-items:center; justify-content:center; animation:fi .15s ease; }
         .modal-overlay.hide { display:none; }
@@ -290,12 +296,14 @@
 </div>
 
 <script>
-const WH = 'http://localhost:5000/webhook/chat-v35';
+const WH = 'http://10.80.174.145:5678/webhook/chat-v35';
 let sidebarOpen = true;
 let history = [];
 let msgCounter = 0;
 let isSending = false;
 let debugModeOn = false;
+let pendingQuery = null;
+let awaitingSiteId = false;
 
 // Debug sections metadata — icons + labels for each of the 11 keys
 const DBG_SECTIONS = [
@@ -430,6 +438,16 @@ async function sendMessage() {
     const text = input.value.trim();
     if (!text || isSending) return;
     input.value = '';
+
+    if (awaitingSiteId) {
+        awaitingSiteId = false;
+        let finalQuery = pendingQuery + " for site " + text;
+        pendingQuery = null;
+        addMessage(text, 'user');
+        await doSend(finalQuery, true, true);
+        return;
+    }
+
     await doSend(text);
 }
 
@@ -438,10 +456,75 @@ async function sendQuick(text) {
     await doSend(text);
 }
 
-async function doSend(text) {
+function addInteractivePrompt(text, buttons) {
+    hideWelcome();
+    const container = document.getElementById('messages');
+    const id = 'msg-' + (++msgCounter);
+    const row = document.createElement('div');
+    row.className = 'msg-row bot';
+    const av = document.createElement('div');
+    av.className = 'avatar bot-av'; av.textContent = '🤖';
+    const mc = document.createElement('div');
+    mc.className = 'msg-content';
+    const bub = document.createElement('div');
+    bub.className = 'bubble bot';
+    bub.textContent = text;
+    
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'bubble-btns';
+    buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'b-btn';
+        btn.textContent = b.label;
+        btn.onclick = () => handleInteractiveChoice(b.action, btnsDiv);
+        btnsDiv.appendChild(btn);
+    });
+    bub.appendChild(btnsDiv);
+    mc.appendChild(bub);
+    row.appendChild(av); row.appendChild(mc);
+    container.appendChild(row);
+    container.scrollTop = container.scrollHeight;
+}
+
+async function handleInteractiveChoice(action, btnsDiv) {
+    Array.from(btnsDiv.children).forEach(b => b.classList.add('disabled-btn'));
+    btnsDiv.style.pointerEvents = 'none';
+    
+    if (action === 'send_all') {
+        const query = pendingQuery;
+        pendingQuery = null;
+        awaitingSiteId = false;
+        addMessage("All Alarms 🌐", 'user');
+        await doSend(query, true, true); 
+    } else if (action === 'ask_site') {
+        awaitingSiteId = true;
+        addMessage("Specific Site 📍", 'user');
+        addMessage("Please write the Site ID below (e.g. ALX3480):", 'bot');
+    }
+}
+
+async function doSend(text, skipIntercept = false, skipUserMsg = false) {
+    if (isSending) return;
+
+    if (!skipIntercept) {
+        let lower = text.toLowerCase();
+        let hasSiteId = /[a-z]{2,4}\d{1,5}/i.test(lower) || /site\s+\d+/i.test(lower);
+        if ((lower.includes('site down') || lower.includes('sites down') || lower.includes('موقع واقع') || lower.includes('مواقع واقعة')) && !hasSiteId) {
+            addMessage(text, 'user');
+            pendingQuery = text;
+            addInteractivePrompt("Do you need all alarms or a specific site id? (هل تريد كل الأعطال أم موقع محدد؟)", [
+                { label: "All Alarms 🌐", action: "send_all" },
+                { label: "Specific Site 📍", action: "ask_site" }
+            ]);
+            return;
+        }
+    }
+
     isSending = true;
     document.getElementById('sendBtn').disabled = true;
-    addMessage(text, 'user');
+    if (!skipUserMsg) {
+        addMessage(text, 'user');
+    }
     showTyping();
     try {
         const resp = await fetch(WH, {
