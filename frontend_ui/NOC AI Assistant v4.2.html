@@ -166,7 +166,7 @@
     <div class="logo">e& <span>NOC</span></div>
     <div class="app-title">AI Operations Center v4.2</div>
     <div class="header-right">
-        <button class="debug-toggle" id="debugToggleBtn" onclick="toggleDebugMode()" title="Toggle debug mode">🔍 Debug Off</button>
+        <button class="debug-toggle active" id="debugToggleBtn" onclick="toggleDebugMode()" title="Toggle debug mode">🔍 Debug On</button>
         <button class="history-btn" onclick="openHistory()" id="historyBtn">
             📋 History <span class="badge-count" id="historyCount">0</span>
         </button>
@@ -301,9 +301,14 @@ let sidebarOpen = true;
 let history = [];
 let msgCounter = 0;
 let isSending = false;
-let debugModeOn = false;
+let debugModeOn = true;
 let pendingQuery = null;
 let awaitingSiteId = false;
+
+// Timing label style injected once
+const _timingStyle = document.createElement('style');
+_timingStyle.textContent = '.msg-timing{font-size:10px;color:var(--text-dim);margin-top:2px;padding-left:4px;display:flex;align-items:center;gap:4px;}.msg-timing .t-chip{background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);color:var(--blue);padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;font-family:"Inter",sans-serif;}';
+document.head.appendChild(_timingStyle);
 
 // Debug sections metadata — icons + labels for each of the 11 keys
 const DBG_SECTIONS = [
@@ -373,7 +378,7 @@ function buildDebugPanel(debug, panelId) {
     return wrap;
 }
 
-function addMessage(text, sender, debug) {
+function addMessage(text, sender, debug, elapsed_ms) {
     hideWelcome();
     const container = document.getElementById('messages');
     const id = 'msg-' + (++msgCounter);
@@ -391,6 +396,16 @@ function addMessage(text, sender, debug) {
     }
     bub.textContent = text;
     mc.appendChild(bub);
+
+    // ── Elapsed time badge (bot only) ──
+    if (sender === 'bot' && elapsed_ms != null) {
+        const timingDiv = document.createElement('div');
+        timingDiv.className = 'msg-timing';
+        const label = elapsed_ms >= 1000 ? (elapsed_ms / 1000).toFixed(2) + 's' : elapsed_ms + 'ms';
+        timingDiv.innerHTML = `⏱ Response time: <span class="t-chip">${label}</span>`;
+        mc.appendChild(timingDiv);
+    }
+
     if (sender === 'bot' && debug && typeof debug === 'object') {
         const btn = document.createElement('button');
         btn.className = 'dbg-toggle';
@@ -526,6 +541,7 @@ async function doSend(text, skipIntercept = false, skipUserMsg = false) {
         addMessage(text, 'user');
     }
     showTyping();
+    const t0 = Date.now();
     try {
         const resp = await fetch(WH, {
             method: 'POST',
@@ -534,11 +550,12 @@ async function doSend(text, skipIntercept = false, skipUserMsg = false) {
         });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
+        const elapsed_ms = Date.now() - t0;
         removeTyping();
         const reply = data.reply || data.answer || 'No response';
         const debug = data.debug || null;
-        addMessage(reply, 'bot', debug);
-        trackHistory(text, reply, debug);
+        addMessage(reply, 'bot', debug, elapsed_ms);
+        trackHistory(text, reply, debug, elapsed_ms);
     } catch(e) {
         removeTyping();
         addMessage('⚠️ Error: ' + e.message + '\nMake sure n8n V3.5 workflow is Active on path /webhook/chat-v35', 'bot');
@@ -561,8 +578,8 @@ function getModeBadge(debug) {
     return modeMap[mode] || ['b-chat', '💬 Chat'];
 }
 
-function trackHistory(question, reply, debug) {
-    history.push({ id: history.length+1, time: new Date().toISOString(), timeLocal: new Date().toLocaleString('en-GB'), question, reply, debug });
+function trackHistory(question, reply, debug, elapsed_ms) {
+    history.push({ id: history.length+1, time: new Date().toISOString(), timeLocal: new Date().toLocaleString('en-GB'), question, reply, debug, elapsed_ms });
     document.getElementById('historyCount').textContent = history.length;
 }
 

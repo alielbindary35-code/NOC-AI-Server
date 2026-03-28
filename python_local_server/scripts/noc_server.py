@@ -558,16 +558,37 @@ def filter_records(records, params, locations):
 # 5. DEDUPLICATE (same logic as n8n node)
 # ═══════════════════════════════════════════════════════════
 def deduplicate(records):
-    seen = set()
-    unique = []
+    """
+    Deduplicates records by alarm key while summing up their tallies 
+    so frequency is preserved.
+    """
+    seen = {}
     for r in records:
+        # Use existing key logic or defaults
         key = r.get('alarmid') or r.get('identifierfromprobe') or r.get('identifier', '')
         if not key:
+            # Add technology to key to distinguish between 2G/3G/4G on same site
             key = f"{r.get('sitename','')}-{r.get('alarmname','')}-{r.get('networktype','')}"
+        
+        # Determine tally to add (default 1)
+        try:
+            val = int(r.get('tally', 1))
+        except:
+            val = 1
+            
         if key not in seen:
-            seen.add(key)
-            unique.append(r)
-    return unique
+            # Create a copy to avoid mutating source DATA if that was passed directly
+            seen[key] = r.copy()
+            seen[key]['tally'] = val
+        else:
+            # Increment tally for the unique alarm record
+            try:
+                current_tally = int(seen[key].get('tally', 0))
+                seen[key]['tally'] = current_tally + val
+            except:
+                pass
+    
+    return list(seen.values())
 
 
 # ═══════════════════════════════════════════════════════════
@@ -579,7 +600,8 @@ def format_reply(records, params, location_label, filter_steps):
     isPower = params['category'] == 'POWER'
     count_only = params['count_only']
     
-    total = len(records)
+    # Use total tally for count queries, not just number of unique items
+    total = sum(int(r.get('tally', 1)) for r in records)
     W = 46
     SEP = '━' * W
     hr  = '─' * W
@@ -613,18 +635,6 @@ def format_reply(records, params, location_label, filter_steps):
 
     # Breakdown
     if records:
-        # Group by alarm name
-        groups = Counter()
-        for r in records:
-            name = r.get('alarmname') or r.get('rawalarmname', '') or 'Unknown'
-            tally = 1
-            try: tally = int(r.get('tally', 1))
-            except: pass
-            groups[name] += tally
-
-        sorted_groups = groups.most_common()
-        group_total = sum(v for _, v in sorted_groups)
-
         if isSiteDown and not count_only:
             # Site list mode
             top = min(15, len(records))
@@ -638,25 +648,56 @@ def format_reply(records, params, location_label, filter_steps):
                 tc = (r.get('networktype') or '?')[:6].ljust(6)
                 vn = r.get('vendor') or '?'
                 reply += f"  {n}. {sc} {tc}  {vn}\n"
-            if total > top:
-                reply += f"\n  ... and {total - top} more sites\n"
+            if len(records) > top:
+                reply += f"\n  ... and {len(records) - top} more sites\n"
         else:
-            # Breakdown by alarm name
-            label = "⚡ By Alarm Type:" if isPower else "📋 By Alarm Name:"
-            reply += label + "\n"
-            maxV = sorted_groups[0][1] if sorted_groups else 1
-            for name, count in sorted_groups[:20]:
-                lb = (name[:27] + '…') if len(name) > 28 else name.ljust(28)
+            # Dual Breakdown mode for counts
+            # 1. By Technology (User call this 'Domain': 2G, 3G, 4G, 5G)
+            tech_groups = Counter()
+            alarm_groups = Counter()
+            
+            for r in records:
+                # Tech grouping
+                t = (r.get('networktype') or '').upper().strip()
+                if not t or t == 'NONE': t = 'RAN'
+                
+                # Alarm grouping
+                a = r.get('alarmname') or r.get('rawalarmname', '') or 'Unknown'
+                
+                tally = 1
+                try: tally = int(r.get('tally', 1))
+                except: pass
+                
+                tech_groups[t] += tally
+                alarm_groups[a] += tally
+
+            # --- Display Tech Breakdown ---
+            reply += "📡 By Tech (2G/3G/4G/5G):\n"
+            sorted_tech = tech_groups.most_common()
+            maxT = sorted_tech[0][1] if sorted_tech else 1
+            for t, count in sorted_tech[:10]:
+                lb = t.ljust(28)
                 cn = str(count).rjust(5)
-                barLen = round((count / maxV) * 10) if maxV > 0 else 0
+                barLen = round((count / maxT) * 10) if maxT > 0 else 0
                 bar = '█' * barLen + '░' * (10 - barLen)
                 reply += f"  {lb} {cn}  {bar}\n"
             
-            if len(sorted_groups) > 20:
-                reply += f"\n  ... and {len(sorted_groups) - 20} more types\n"
+            reply += hr + "\n"
+
+            # --- Display Alarm Breakdown ---
+            label = "⚡ By Alarm Type:" if isPower else "📋 By Alarm Name:"
+            reply += label + "\n"
+            sorted_alarm = alarm_groups.most_common()
+            maxA = sorted_alarm[0][1] if sorted_alarm else 1
+            for name, count in sorted_alarm[:15]:
+                lb = (name[:27] + '…') if len(name) > 28 else name.ljust(28)
+                cn = str(count).rjust(5)
+                barLen = round((count / maxA) * 10) if maxA > 0 else 0
+                bar = '█' * barLen + '░' * (10 - barLen)
+                reply += f"  {lb} {cn}  {bar}\n"
             
-            if group_total != total:
-                reply += f"\n  ℹ️  Based on {len(records)} of {group_total} records\n"
+            if len(sorted_alarm) > 15:
+                reply += f"\n  ... and {len(sorted_alarm) - 15} more types\n"
 
     reply += SEP
     return reply, total
