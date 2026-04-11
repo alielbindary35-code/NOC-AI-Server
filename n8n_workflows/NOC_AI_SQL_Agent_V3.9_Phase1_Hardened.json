@@ -1,0 +1,737 @@
+﻿{
+  "name": "NOC AI SQL Agent V3.9 Phase1 Hardened",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-v38-foundation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "v38f-0001",
+      "name": "INT_Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        -200
+      ],
+      "webhookId": "noc-ai-v38-foundation-if-router"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "chatInput",
+              "value": "={{$json.body.message}}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "debugMode",
+              "value": "={{!!$json.body.debug_mode}}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "v38f-0002",
+      "name": "INT_Extract Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst q = String(j.chatInput || '').trim();\n\nconst systemPrompt = `\nYou are a telecom NOC request classifier.\nReturn ONLY one raw JSON object with no markdown.\n\nAllowed keys only:\nmode, intent, category, vendor, region_input, office_input, geo_type, technology, networktype, severity,\nsitedownflag, sitepoweroff, acknowledged, isvip, domain, sitecode,\nrequest_profile, analysis_scope, anchor_type, requested_blocks, count_only, user_question\n\nAllowed mode: incident, complaint, performance, reporting, free_chat, unknown\nAllowed geo_type: region, office, site, none\nAllowed request_profile: simple_query, site_incident_summary, free_chat, placeholder\n\nIncident is highest priority.\n\nIntent shortlist:\nsite_down_count\nsite_down_list\npower_alarm_summary\ntx_alarm_summary\nvip_down_sites\nsite_active_alarms\nsite_incident_summary\ndown_aging_summary\npower_aging_summary\ndown_parked_summary\npower_parked_summary\nplaceholder_request\nfree_chat\n\nCategory shortlist:\nSITE_DOWN\nPOWER\nTX\nCELL_DOWN\n\"\"\n\nRules:\n- \"How many\" + site down => site_down_count + SITE_DOWN + count_only=true + sitedownflag=Yes\n- list/show down sites => site_down_list + SITE_DOWN + sitedownflag=Yes\n- power alarms => power_alarm_summary + POWER\n- tx alarms/transport/microwave/mpls => tx_alarm_summary + TX\n- VIP down => vip_down_sites + SITE_DOWN + isvip=Yes + sitedownflag=Yes\n- aging + down => down_aging_summary + SITE_DOWN + sitedownflag=Yes\n- aging + power => power_aging_summary + POWER\n- parked + down => down_parked_summary + SITE_DOWN + sitedownflag=Yes\n- parked + power => power_parked_summary + POWER\n- \"warning\" + down => down_aging_summary + SITE_DOWN + sitedownflag=Yes\n- \"critical\" + down => down_aging_summary + SITE_DOWN + sitedownflag=Yes\n- \"warning\" + power => power_aging_summary + POWER\n- \"critical\" + power => power_aging_summary + POWER\n- active alarms on a specific site => site_active_alarms\n- analyze/status/incident/details for specific site => site_incident_summary + request_profile=site_incident_summary\n- if user asks full incident or incident analysis without site code => placeholder_request + request_profile=placeholder + requested_blocks=need_site_for_incident\n- unsupported performance/reporting/future request => placeholder_request + request_profile=placeholder\n- greeting/thanks => free_chat\n- If region mentioned => geo_type=region and put value in region_input\n- If office mentioned => geo_type=office and put value in office_input\n- If site code mentioned => geo_type=site and put value in sitecode\n- Never use null. Use empty string for missing values.\n`;\n\nconst userPrompt = `User question: ${q}`;\nreturn [{ json: { ...j, systemPrompt, userPrompt } }];"
+      },
+      "id": "v38f-0003",
+      "name": "LLM_Build Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:14b",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "v38f-0004",
+      "name": "INT_Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.userPrompt}}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "={{$json.systemPrompt}}"
+            }
+          ]
+        }
+      },
+      "id": "v38f-0005",
+      "name": "Basic LLM Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        1560,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $items('INT_Extract Message')[0]?.json || {};\nconst chainOut = $json.text || $json.response || $json.output || '';\nlet parsed = {};\ntry { parsed = JSON.parse(chainOut); } catch (e) { parsed = {}; }\nreturn [{\n  json: {\n    mode: String(parsed.mode || '').trim(),\n    intent: String(parsed.intent || '').trim(),\n    category: String(parsed.category || '').trim(),\n    vendor: String(parsed.vendor || '').trim(),\n    region_input: String(parsed.region_input || '').trim(),\n    office_input: String(parsed.office_input || '').trim(),\n    geo_type: String(parsed.geo_type || '').trim(),\n    technology: String(parsed.technology || '').trim(),\n    networktype: String(parsed.networktype || '').trim(),\n    severity: String(parsed.severity || '').trim(),\n    sitedownflag: String(parsed.sitedownflag || '').trim(),\n    sitepoweroff: String(parsed.sitepoweroff || '').trim(),\n    acknowledged: String(parsed.acknowledged || '').trim(),\n    isvip: String(parsed.isvip || '').trim(),\n    domain: String(parsed.domain || '').trim(),\n    sitecode: String(parsed.sitecode || '').trim(),\n    request_profile: String(parsed.request_profile || '').trim(),\n    analysis_scope: String(parsed.analysis_scope || '').trim(),\n    anchor_type: String(parsed.anchor_type || '').trim(),\n    requested_blocks: String(parsed.requested_blocks || '').trim(),\n    count_only: parsed.count_only === true || String(parsed.count_only || '').toLowerCase() === 'true',\n    user_question: String(parsed.user_question || original.chatInput || '').trim(),\n    debugMode: !!original.debugMode,\n    _aiRaw: chainOut\n  }\n}];"
+      },
+      "id": "v38f-0006",
+      "name": "INT_Parse AI Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst q = String(j.user_question || '').toLowerCase().trim();\n\nconst incidentWords = [\n  'site down','sites down','down site','down sites','how many site down','how many sites down',\n  'power alarm','power alarms','tx alarm','tx alarms','transport','microwave','mpls tunnel',\n  'vip down','root cause','cascaded','active alarms','site status','analyze site',\n  'incident for site','incident analysis','full incident','analyze incident','incident details',\n  'dashboard','summary card','executive summary','موقع واقع','مواقع واقعة','باور','داون',\n  'aging','parked','warning','critical'\n];\n\nconst isGreeting = ['hi','hello','hey','thanks','thank you','مرحبا','شكرا','شكراً','ازيك']\n  .some(x => q === x || q.startsWith(x + ' '));\n\nconst hasIncident = incidentWords.some(x => q.includes(x));\nconst hasSiteLike = /[A-Z]{2,}\\d{2,}/i.test(j.sitecode || q);\n\nconst modeMap = {\n  site_down_count:'incident',\n  site_down_list:'incident',\n  power_alarm_summary:'incident',\n  tx_alarm_summary:'incident',\n  vip_down_sites:'incident',\n  site_active_alarms:'incident',\n  site_incident_summary:'incident',\n  down_aging_summary:'incident',\n  power_aging_summary:'incident',\n  down_parked_summary:'incident',\n  power_parked_summary:'incident',\n  placeholder_request:'placeholder',\n  free_chat:'free_chat'\n};\n\nj.intent = String(j.intent || '').toLowerCase().trim();\nj.category = String(j.category || '').toUpperCase().trim();\n\nif (modeMap[j.intent]) j.mode = modeMap[j.intent];\n\nfunction forcePowerAging() {\n  j.intent = 'power_aging_summary';\n  j.category = 'POWER';\n}\nfunction forcePowerParked() {\n  j.intent = 'power_parked_summary';\n  j.category = 'POWER';\n}\nfunction forceDownAging() {\n  j.intent = 'down_aging_summary';\n  j.category = 'SITE_DOWN';\n  j.sitedownflag = 'Yes';\n}\nfunction forceDownParked() {\n  j.intent = 'down_parked_summary';\n  j.category = 'SITE_DOWN';\n  j.sitedownflag = 'Yes';\n}\n\n// HARD OVERRIDE from question first\nif (q.includes('power') && q.includes('aging')) forcePowerAging();\nif (q.includes('power') && q.includes('parked')) forcePowerParked();\nif ((q.includes('warning') || q.includes('critical')) && q.includes('power')) forcePowerAging();\nif ((q.includes('warning') || q.includes('critical')) && (q.includes('down') || q.includes('site'))) forceDownAging();\n\nif (!j.intent || j.intent === 'unknown') {\n  if (hasIncident) {\n    j.mode = 'incident';\n\n    if ((q.includes('full incident') || q.includes('incident analysis') || q.includes('analyze incident') || q.includes('incident details')) && !hasSiteLike) {\n      j.mode = 'placeholder';\n      j.intent = 'placeholder_request';\n      j.request_profile = 'placeholder';\n      j.requested_blocks = 'need_site_for_incident';\n    } else if (q.includes('power') && q.includes('aging')) {\n      forcePowerAging();\n    } else if (q.includes('power') && q.includes('parked')) {\n      forcePowerParked();\n    } else if ((q.includes('warning') || q.includes('critical')) && q.includes('power')) {\n      forcePowerAging();\n    } else if (q.includes('aging') && (q.includes('down') || q.includes('site'))) {\n      forceDownAging();\n    } else if (q.includes('parked') && (q.includes('down') || q.includes('site'))) {\n      forceDownParked();\n    } else if ((q.includes('warning') || q.includes('critical')) && (q.includes('down') || q.includes('site'))) {\n      forceDownAging();\n    } else if (q.includes('power')) {\n      j.intent = 'power_alarm_summary';\n      j.category = 'POWER';\n    } else if (q.includes('tx') || q.includes('transport') || q.includes('microwave') || q.includes('mpls')) {\n      j.intent = 'tx_alarm_summary';\n      j.category = 'TX';\n    } else if (q.includes('vip')) {\n      j.intent = 'vip_down_sites';\n      j.category = 'SITE_DOWN';\n      j.isvip = 'Yes';\n      j.sitedownflag = 'Yes';\n    } else if (hasSiteLike && (q.includes('analyze') || q.includes('status') || q.includes('incident') || q.includes('detail'))) {\n      j.intent = 'site_incident_summary';\n      j.request_profile = 'site_incident_summary';\n    } else if (hasSiteLike && q.includes('active alarms')) {\n      j.intent = 'site_active_alarms';\n    } else if (q.includes('how many') || q.includes('count') || q.includes('كم')) {\n      j.intent = 'site_down_count';\n      j.category = 'SITE_DOWN';\n      j.count_only = true;\n      j.sitedownflag = 'Yes';\n    } else {\n      j.intent = 'site_down_list';\n      j.category = 'SITE_DOWN';\n      j.sitedownflag = 'Yes';\n    }\n  } else if (isGreeting) {\n    j.mode = 'free_chat';\n    j.intent = 'free_chat';\n    j.request_profile = 'free_chat';\n  } else {\n    j.mode = 'placeholder';\n    j.intent = 'placeholder_request';\n    j.request_profile = 'placeholder';\n  }\n}\n\n// FINAL INTENT->CATEGORY CONSISTENCY\nif (j.intent === 'power_alarm_summary') j.category = 'POWER';\nif (j.intent === 'power_aging_summary') j.category = 'POWER';\nif (j.intent === 'power_parked_summary') j.category = 'POWER';\nif (j.intent === 'tx_alarm_summary') j.category = 'TX';\n\nif (j.intent === 'site_down_count') { j.category = 'SITE_DOWN'; j.sitedownflag = 'Yes'; }\nif (j.intent === 'site_down_list') { j.category = 'SITE_DOWN'; j.sitedownflag = 'Yes'; }\nif (j.intent === 'vip_down_sites') { j.category = 'SITE_DOWN'; j.sitedownflag = 'Yes'; j.isvip = 'Yes'; }\nif (j.intent === 'down_aging_summary') { j.category = 'SITE_DOWN'; j.sitedownflag = 'Yes'; }\nif (j.intent === 'down_parked_summary') { j.category = 'SITE_DOWN'; j.sitedownflag = 'Yes'; }\n\n// extra defensive rule\nif (q.includes('power') && j.intent.includes('aging')) {\n  j.intent = 'power_aging_summary';\n  j.category = 'POWER';\n}\nif (q.includes('power') && j.intent.includes('parked')) {\n  j.intent = 'power_parked_summary';\n  j.category = 'POWER';\n}\n\nif (!j.request_profile) {\n  if (j.intent === 'site_incident_summary') j.request_profile = 'site_incident_summary';\n  else if (j.intent === 'free_chat' || j.mode === 'free_chat') j.request_profile = 'free_chat';\n  else if (j.intent === 'placeholder_request' || j.mode === 'placeholder') j.request_profile = 'placeholder';\n  else j.request_profile = 'simple_query';\n}\n\nif (j.request_profile === 'site_incident_summary') {\n  j.mode = 'incident';\n  j.analysis_scope = 'per_site';\n  j.anchor_type = 'sitecode';\n  j.geo_type = j.sitecode ? 'site' : (j.geo_type || 'none');\n}\n\nj.output_view = /(dashboard|summary card|executive summary|card view|show dashboard)/i.test(q)\n  ? 'dashboard'\n  : 'text';\n\nif (!j.geo_type) j.geo_type = 'none';\nif (j.geo_type === 'site' && !j.sitecode) j.geo_type = 'none';\nif (j.geo_type === 'region' && !j.region_input) j.geo_type = 'none';\nif (j.geo_type === 'office' && !j.office_input) j.geo_type = 'none';\n\nreturn [{ json: j }];"
+      },
+      "id": "v38f-0007",
+      "name": "INT_Operational Guardrails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst q = String(j.user_question || '').toLowerCase().trim();\nconst regionRaw = String(j.region_input || '').toLowerCase().trim();\nconst geoMap = {'alex':'Alex','alexandria':'Alex','اسكندرية':'Alex','اسكندريه':'Alex','cairo':'Cairo','القاهرة':'Cairo','delta':'East Delta|West Delta','دلتا':'East Delta|West Delta','upper egypt':'North Upper|South Upper','الصعيد':'North Upper|South Upper','sinai':'Sinai','سينا':'Sinai','سيناء':'Sinai'};\nconst officeRaw = String(j.office_input || '').trim();\nconst knownOffices = ['ALEX1','ALEX2','ALEX3','ALEX4','AlexCore','Cairo','CairoCore','Downtown','Gesr El Suiz','Giza','Helwan','Mohandesen','OSS','Shorouk','Tagamo3','DOMYAT','DYARBNEAGM','FAKOUS','MANSURA','ZAGAZIK','DAMANHOUR','DELENGAT','KAFR ELSHEIKH','SHEBIN','TANTA','ASSIUT','BANISUIEF','DEIR MAWAS','FAYOUM','MENYA','Maghagha','ASWAN','Abu simple','EDFO','GERGA','LUXOR','QENA','SOHAG','ABO REDIES','ARISH','HURGHADA','ISMAILIA','MARSA ALAM','NUWIBA','RASCEDER','SHARM','SUEZ','ZAFRANA'];\n\nlet intent = String(j.intent || '').trim();\nlet category = String(j.category || '').trim().toUpperCase();\n\n// v3.9 FIX: Guardrails consolidated in INT_Operational_Guardrails only\nlet location_resolved=''; \nlet office_resolved='';\nif (j.geo_type==='region') location_resolved = geoMap[regionRaw] || j.region_input || '';\nelse if (j.geo_type==='office') office_resolved = knownOffices.find(o => o.toLowerCase() === officeRaw.toLowerCase()) || officeRaw;\n\nconst realNow = new Date();\n// v3.9 FIX: Reliable Cairo timezone using Intl.DateTimeFormat.formatToParts\nconst cairoParts = Object.fromEntries(\n  new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'Africa/Cairo',\n    year:'numeric', month:'2-digit', day:'2-digit',\n    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false\n  }).formatToParts(realNow).filter(p => p.type !== 'literal').map(p => [p.type, p.value])\n);\nconst cairoElapsedMs = (parseInt(cairoParts.hour)*3600 + parseInt(cairoParts.minute)*60 + parseInt(cairoParts.second)) * 1000;\nlet startUnix = realNow.getTime() - cairoElapsedMs;\nlet endUnix = startUnix + 86400000 - 1;\nif (q.includes('last 7 day') || q.includes('last week')) { \n  startUnix = realNow.getTime()-604800000; \n  endUnix = realNow.getTime(); \n}\n\nconst agingIntents = ['down_aging_summary','power_aging_summary','down_parked_summary','power_parked_summary'];\nconst isAgingIntent = agingIntents.includes(intent);\n\n// Safe fallback for aging/parked: last 3 months up to now\nif (isAgingIntent) {\n  startUnix = realNow.getTime() - (90 * 24 * 60 * 60 * 1000);\n  endUnix = realNow.getTime();\n}\n\nconst pad = n => String(n).padStart(2,'0');\nconst fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;\n\nreturn [{ json: {\n  mode:j.mode, intent, category, request_profile:j.request_profile, analysis_scope:j.analysis_scope||'', anchor_type:j.anchor_type||'', requested_blocks:j.requested_blocks||'', user_question:j.user_question, debugMode:!!j.debugMode, _aiRaw:j._aiRaw||'', output_view:j.output_view || 'text',\n  filters:{ vendor:j.vendor||'', technology:j.technology||j.networktype||'', severity: isAgingIntent ? '' : (j.severity||''), acknowledged:j.acknowledged||'', isvip:j.isvip||'', domain:j.domain||'', sitedownflag:(category==='SITE_DOWN' ? (j.sitedownflag||'Yes') : ''), sitepoweroff:j.sitepoweroff||'', sitecode:j.sitecode||'' },\n  geography:{ geo_type:j.geo_type||'none', region_input:j.region_input||'', office_input:j.office_input||'', location_resolved, office_resolved },\n  time_range:{ starttime:startUnix, endtime:endUnix, start_local: fmt(new Date(startUnix)), end_local: fmt(new Date(endUnix)) },\n  count_only:!!j.count_only,\n  isAgingIntent\n}}];"
+      },
+      "id": "v38f-0008",
+      "name": "CORE_Build Unified Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{$json.request_profile}}",
+              "rightValue": "free_chat",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{$json.mode}}",
+              "rightValue": "free_chat",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c3",
+              "leftValue": "={{$json.intent}}",
+              "rightValue": "free_chat",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "v38f-0009",
+      "name": "ROUTE_Is Free Chat",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2440,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "p1",
+              "leftValue": "={{$json.request_profile}}",
+              "rightValue": "placeholder",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "p2",
+              "leftValue": "={{$json.mode}}",
+              "rightValue": "placeholder",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "p3",
+              "leftValue": "={{$json.intent}}",
+              "rightValue": "placeholder_request",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "v38f-0010",
+      "name": "ROUTE_Is Placeholder",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2660,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = String($json.user_question || '').trim();\nlet reply = '👋 Hello! I am the NOC Operations AI Assistant. Try asking about site down, power alarms, TX alarms, or a specific site code.';\nif (/thanks|thank you|شكرا|شكراً/i.test(q)) {\n  reply = '😊 You are welcome. Ask me about down sites, power alarms, TX alarms, or a specific site code.';\n}\nconst now = new Date().toISOString();\nconst debug = {\n  '1_user_request': { question: q, debug_mode: false, timestamp: now, elapsed_label: 'V3.8 Foundation' },\n  '2_ai_raw_output': { raw: '(free chat path)' },\n  '3_ai_interpretation': { mode: 'free_chat', intent: 'free_chat', category: '', geo_type: 'none', technology: '', filters: {} },\n  '4_geography': { region_input: '', office_input: '', geo_type: 'none', location_resolved: '', office_resolved: '' },\n  '5_sql_mapping': { skipped: true, reason: 'free chat path' },\n  '6_time_range': { skipped: true },\n  '7_api_payload': { skipped: true, reason: 'free chat path' },\n  '8_api_response': { skipped: true },\n  '9_post_filter_dedup': { skipped: true },\n  '10_count_logic': { skipped: true },\n  '11_final_reply': { preview: reply.slice(0, 200) }\n};\nreturn [{\n  json: {\n    version: 'v1',\n    response_type: 'text',\n    intent: 'free_chat',\n    category: '',\n    reply,\n    total: 0,\n    summary: {},\n    charts: {},\n    tables: {},\n    filters: {},\n    meta: { generated_at: now },\n    debug,\n    dashboard_data: null\n  }\n}];"
+      },
+      "id": "v38f-0011",
+      "name": "FREE_Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst q = String(j.user_question || '').toLowerCase();\nconst needsSite = (q.includes('full incident') || q.includes('incident analysis') || q.includes('analyze incident') || q.includes('incident details')) && !String(j.filters?.sitecode || '').trim();\nlet reply;\nif (needsSite || j.requested_blocks === 'need_site_for_incident') {\n  reply = 'Please provide the site code to continue incident full analysis. Example: Analyze site ALX3480';\n} else {\n  const mode = j.mode || 'placeholder';\n  const intent = j.intent || 'placeholder_request';\n  reply = `⚠️ ${mode} / ${intent} — Data source not connected yet.\\n\\nThis capability is part of the future plan.`;\n}\nconst now = new Date().toISOString();\nconst debug = {\n  '1_user_request': { question: j.user_question || '', debug_mode: !!j.debugMode, timestamp: now, elapsed_label: 'V3.8 Foundation' },\n  '2_ai_raw_output': { raw: j._aiRaw || '(not captured)' },\n  '3_ai_interpretation': { mode: j.mode || '', intent: j.intent || '', category: j.category || '', geo_type: j.geography?.geo_type || 'none', technology: j.filters?.technology || '', filters: j.filters || {} },\n  '4_geography': { region_input: j.geography?.region_input || '', office_input: j.geography?.office_input || '', geo_type: j.geography?.geo_type || 'none', location_resolved: j.geography?.location_resolved || '', office_resolved: j.geography?.office_resolved || '' },\n  '5_sql_mapping': { skipped: true, reason: 'placeholder path' },\n  '6_time_range': { start_local: j.time_range?.start_local || '', end_local: j.time_range?.end_local || '', api_type: 0 },\n  '7_api_payload': { skipped: true, reason: 'placeholder path' },\n  '8_api_response': { skipped: true },\n  '9_post_filter_dedup': { skipped: true },\n  '10_count_logic': { skipped: true },\n  '11_final_reply': { preview: reply.slice(0, 200) }\n};\nreturn [{\n  json: {\n    version: 'v1',\n    response_type: 'text',\n    intent: j.intent || 'placeholder_request',\n    category: j.category || '',\n    reply,\n    total: 0,\n    summary: {},\n    charts: {},\n    tables: {},\n    filters: {},\n    meta: { generated_at: now },\n    debug,\n    dashboard_data: null\n  }\n}];"
+      },
+      "id": "v38f-0012",
+      "name": "PLACEHOLDER_Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j=$json;\nlet intent = String(j.intent || '').trim();\nlet cat = String(j.category || '').toUpperCase().trim();\nconst q = String(j.user_question || '').toLowerCase().trim();\n\n// v3.9 FIX: Trust guardrail output - intent/category already correct\nconst ven=(j.filters?.vendor||'').trim();\nconst tech=(j.filters?.technology||'').trim();\nlet sql=\"SELECT '__DIRECT__' AS alarm_name\";\n\nif(['SITE_DOWN','POWER','TX','CELL_DOWN'].includes(cat)){\n  let where=[`category = '${cat.replace(/'/g,\"''\")}'`];\n  if(ven) where.push(`vendor = '${ven.replace(/'/g,\"''\")}'`);\n  if(tech) where.push(`technology = '${tech.replace(/'/g,\"''\")}'`);\n  sql=`SELECT alarm_name FROM ai_alarm_mappings WHERE ${where.join(' AND ')} ORDER BY alarm_name;`;\n}\n\nif(j.request_profile==='site_incident_summary' || intent==='site_active_alarms') sql=\"SELECT '__DIRECT__' AS alarm_name\";\n\nreturn [{json:{...j, intent, category:cat, sql}}];"
+      },
+      "id": "v38f-0013",
+      "name": "ENGINE_Build SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "v38f-0014",
+      "name": "DB_Get Alarm Names",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3100,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = $('ENGINE_Build SQL').item.json;\nconst sqlItems = $items('DB_Get Alarm Names');\nconst allNames = sqlItems.map(i => i.json.alarm_name).filter(Boolean);\nconst isDirectMode = allNames.length === 0 || allNames.includes('__DIRECT__');\n\nconst agingIntents = ['down_aging_summary','power_aging_summary','down_parked_summary','power_parked_summary'];\nconst isAgingIntent = agingIntents.includes(String(t.intent || '').trim());\n\nlet payload = {\n  start: 0,\n  limit: 1000,\n  type: 1\n};\n\nfunction add(key, val) {\n  if (val !== undefined && val !== null && String(val).trim() !== '') payload[key] = val;\n}\n\n// Aging / parked still need API mandatory time headers\n// Use safe fallback = last 3 months prepared in CORE_Build Unified Context\nadd('starttime', t.time_range?.starttime);\nadd('endtime', t.time_range?.endtime);\n\n// Primary query driver = mapping alarms only\nif (!isDirectMode && allNames.length > 0) {\n  add('alarmname', allNames.join('|'));\n}\n\n// Geography filters only when explicitly requested\nif (t.geography.geo_type === 'region' && t.geography.location_resolved) add('location', t.geography.location_resolved);\nelse if (t.geography.geo_type === 'office' && t.geography.office_resolved) add('city', t.geography.office_resolved);\nadd('sitecode', t.filters.sitecode);\n\n// Optional direct filters\nadd('vendor', t.filters.vendor);\nadd('networktype', t.filters.technology);\nadd('acknowledged', t.filters.acknowledged);\nadd('isvip', t.filters.isvip);\nadd('domain', t.filters.domain);\n\n// Never send severity filters for aging / parked\nif (!isAgingIntent) {\n  const sev = String(t.filters.severity || '').toLowerCase().trim();\n  const alevs = ['critical','major','minor','warning'];\n  const clevs = ['uncleared','cleared','active','open'];\n  if (alevs.includes(sev)) add('standardalarmseverity', sev.charAt(0).toUpperCase()+sev.slice(1));\n  if (clevs.includes(sev)) add('severity', sev.charAt(0).toUpperCase()+sev.slice(1));\n}\n\nreturn [{ json: { ...t, api_payload: payload, mapping_alarm_names: allNames, isDirectMode, isAgingIntent } }];"
+      },
+      "id": "v38f-0015",
+      "name": "ENGINE_Build API Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://10.80.174.137:31943/adc-intg/api/rest/v1/custom_api/custom_api/custom_api_get/query_alarms/query_alarm",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "start",
+              "value": "={{ String($json.api_payload.start ?? 0) }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ String($json.api_payload.limit ?? 1000) }}"
+            },
+            {
+              "name": "type",
+              "value": "={{ String($json.api_payload.type ?? 1) }}"
+            },
+            {
+              "name": "starttime",
+              "value": "={{ String($json.api_payload.starttime) }}"
+            },
+            {
+              "name": "endtime",
+              "value": "={{ String($json.api_payload.endtime) }}"
+            },
+            {
+              "name": "alarmname",
+              "value": "={{ $json.api_payload.alarmname ?? '' }}"
+            },
+            {
+              "name": "location",
+              "value": "={{ $json.api_payload.location ?? '' }}"
+            },
+            {
+              "name": "city",
+              "value": "={{ $json.api_payload.city ?? '' }}"
+            },
+            {
+              "name": "sitecode",
+              "value": "={{ $json.api_payload.sitecode ?? '' }}"
+            },
+            {
+              "name": "vendor",
+              "value": "={{ $json.api_payload.vendor ?? '' }}"
+            },
+            {
+              "name": "networktype",
+              "value": "={{ $json.api_payload.networktype ?? '' }}"
+            },
+            {
+              "name": "standardalarmseverity",
+              "value": "={{ $json.api_payload.standardalarmseverity ?? '' }}"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.api_payload.severity ?? '' }}"
+            },
+            {
+              "name": "isvip",
+              "value": "={{ $json.api_payload.isvip ?? '' }}"
+            },
+            {
+              "name": "acknowledged",
+              "value": "={{ $json.api_payload.acknowledged ?? '' }}"
+            },
+            {
+              "name": "domain",
+              "value": "={{ $json.api_payload.domain ?? '' }}"
+            },
+            {
+              "name": "sitedownflag",
+              "value": "={{ $json.api_payload.sitedownflag ?? '' }}"
+            },
+            {
+              "name": "sitepoweroff",
+              "value": "={{ $json.api_payload.sitepoweroff ?? '' }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "v38f-0016",
+      "name": "ENGINE_Call Alarm API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3540,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = $('ENGINE_Build API Payload').item.json;\nconst pageInputs = $input.all();\n\n// v3.9 FIX: Detect API calls that failed (returned no data)\nconst failedPageIndices = pageInputs.map((item, i) => ({ i, raw: item.json || {} })).filter(({ raw }) => !raw.result && !raw.data && !raw.records && !raw.rows && !raw.items).map(({ i }) => i);\nconst paginationWarning = failedPageIndices.length > 0 ? 'Data may be incomplete: ' + failedPageIndices.length + ' page(s) failed to return data.' : null;\n\nfunction extractRecords(raw) {\n  if (!raw || typeof raw !== 'object') return [];\n  return Array.isArray(raw.result) ? raw.result\n    : Array.isArray(raw.data) ? raw.data\n    : Array.isArray(raw.records) ? raw.records\n    : Array.isArray(raw.rows) ? raw.rows\n    : Array.isArray(raw.items) ? raw.items\n    : [];\n}\n\nlet allRecords = [];\nlet pageSizes = [];\nlet pageMeta = [];\nlet apiTotals = [];\n\nfor (const item of pageInputs) {\n  const raw = item.json || {};\n  const recs = extractRecords(raw);\n  const total = Number(raw.total || raw.count || raw.totalCount || raw.totalRecords || recs.length || 0);\n\n  allRecords.push(...recs);\n  pageSizes.push(recs.length);\n  apiTotals.push(total);\n  pageMeta.push({\n    start: raw.api_payload?.start ?? raw._page?.start ?? null,\n    limit: raw.api_payload?.limit ?? raw._page?.limit ?? null,\n    page_index: raw._page?.index ?? null,\n    records: recs.length,\n    total\n  });\n}\n\nconst requestedPages = pageSizes.length;\nconst nonEmptyPages = pageSizes.filter(n => n > 0).length;\nconst firstShortPageIndex = pageSizes.findIndex(n => n < Number(t.api_payload?.limit || 1000));\nconst endedNaturally = firstShortPageIndex >= 0;\nconst reachedCap = !endedNaturally && requestedPages > 0 && pageSizes[requestedPages - 1] === Number(t.api_payload?.limit || 1000);\nconst apiRealTotal = Math.max(...apiTotals, allRecords.length, 0);\n\nlet records = allRecords;\n\n/* ---------------------------\n   SAFE POST-FILTERS\n--------------------------- */\nif (t.filters.vendor) {\n  const v = String(t.filters.vendor).toLowerCase();\n  records = records.filter(r => String(r.vendor || '').toLowerCase().includes(v));\n}\nif (t.filters.technology) {\n  const tech = String(t.filters.technology).toLowerCase();\n  records = records.filter(r => String(r.networktype || '').toLowerCase().includes(tech));\n}\nif (t.filters.acknowledged) {\n  records = records.filter(r => String(r.acknowledged || '') === String(t.filters.acknowledged));\n}\nif (t.filters.sitecode) {\n  const sc = String(t.filters.sitecode).trim().toUpperCase();\n  records = records.filter(r => String(r.sitecode || '').trim().toUpperCase() === sc);\n}\nif (t.filters.isvip) {\n  records = records.filter(r => String(r.isvip || '').toLowerCase() === 'yes');\n}\n\n/* IMPORTANT:\n   Never filter aging/parked by API severity aliases such as Warning/Critical.\n   Those are time-threshold concepts in this workflow, not standardalarmseverity filters.\n*/\nconst logicalRecords = Array.isArray(records) ? records : [];\n\n/* ---------------------------\n   HELPERS\n--------------------------- */\nfunction parseAlarmTime(ts) {\n  if (ts === undefined || ts === null || ts === '') return NaN;\n  if (typeof ts === 'number') return ts;\n\n  const s = String(ts).trim();\n  if (/^\\d{13}$/.test(s)) return Number(s);\n  if (/^\\d{10}$/.test(s)) return Number(s) * 1000;\n\n  const parsed = new Date(s).getTime();\n  return Number.isNaN(parsed) ? NaN : parsed;\n}\n\nfunction normalizeSiteKey(r) {\n  const a = String(r.sitecode || '').trim().toUpperCase();\n  const b = String(r.sitename || '').trim().toUpperCase();\n  const invalid = new Set(['', '-', 'NULL', 'N/A', 'UNKNOWN', '0']);\n\n  if (a && !invalid.has(a)) return a;\n  if (b && !invalid.has(b)) return b;\n  return '';\n}\n\nfunction normalizeAlarmName(r) {\n  return String(r.alarmname || r.rawalarmname || '').trim();\n}\n\nfunction tallyBy(arr, getter) {\n  const m = {};\n  for (const r of arr) {\n    const k = String(getter(r) || 'Unknown').trim() || 'Unknown';\n    m[k] = (m[k] || 0) + 1;\n  }\n  return Object.entries(m)\n    .sort((a, b) => b[1] - a[1])\n    .map(([name, count]) => ({ name, count }));\n}\n\nfunction makeTopSites(arr) {\n  const m = {};\n  for (const r of arr) {\n    const site = normalizeSiteKey(r);\n    if (!site) continue;\n    const office = String(r.city || '').trim();\n    if (!m[site]) m[site] = { site, office, value: 0 };\n    m[site].value += 1;\n  }\n  return Object.values(m).sort((a, b) => b.value - a.value).slice(0, 8);\n}\n\nfunction getLatestPerSite(rows) {\n  const m = new Map();\n  for (const r of rows) {\n    const site = normalizeSiteKey(r);\n    if (!site) continue;\n\n    const currTs = parseAlarmTime(r.lastoccurrence || r.firstoccurrence || r.eventtime || r.time || '');\n    const old = m.get(site);\n    const oldTs = old ? parseAlarmTime(old.lastoccurrence || old.firstoccurrence || old.eventtime || old.time || '') : -1;\n\n    if (!old || currTs > oldTs) {\n      m.set(site, r);\n    }\n  }\n  return Array.from(m.values());\n}\n\nfunction filterRowsByAge(rows, minHours) {\n  const nowMs = Date.now();\n  return rows.filter(r => {\n    const tms = parseAlarmTime(r.lastoccurrence || r.firstoccurrence || r.eventtime || r.time || '');\n    if (Number.isNaN(tms)) return false;\n    return ((nowMs - tms) / 3600000) > minHours;\n  });\n}\n\nfunction computeAging(rows) {\n  const nowMs = Date.now();\n  let lt2h = 0, h2_4 = 0, h4_12 = 0, gt12h = 0, warn_gt6 = 0, crit_gt12 = 0, parked_gt24 = 0;\n\n  for (const r of rows) {\n    const tms = parseAlarmTime(r.lastoccurrence || r.firstoccurrence || r.eventtime || r.time || '');\n    if (Number.isNaN(tms)) continue;\n\n    const diffH = (nowMs - tms) / 3600000;\n\n    if (diffH < 2) lt2h++;\n    else if (diffH < 4) h2_4++;\n    else if (diffH < 12) h4_12++;\n    else gt12h++;\n\n    if (diffH > 6) warn_gt6++;\n    if (diffH > 12) crit_gt12++;\n    if (diffH > 24) parked_gt24++;\n  }\n\n  return {\n    '<2h': lt2h,\n    '2_4h': h2_4,\n    '4_12h': h4_12,\n    '>12h': gt12h,\n    warning_gt_6h: warn_gt6,\n    critical_gt_12h: crit_gt12,\n    parked_gt_24h: parked_gt24\n  };\n}\n\n/* ---------------------------\n   DEBUG DEDUP COUNTS\n--------------------------- */\nfunction keySiteAlarm(r) {\n  return String([\n    normalizeSiteKey(r),\n    normalizeAlarmName(r)\n  ].join('|'));\n}\nconst seenA = new Map();\nfor (const r of logicalRecords) {\n  const k = keySiteAlarm(r);\n  if (!seenA.has(k)) seenA.set(k, r);\n}\nconst hypotheticalA = Array.from(seenA.values());\n\nfunction keyCurrent(r) {\n  return String([\n    normalizeSiteKey(r),\n    normalizeAlarmName(r),\n    String(r.firstoccurrence || r.eventtime || r.time || '').trim()\n  ].join('|'));\n}\nconst seenB = new Map();\nfor (const r of logicalRecords) {\n  const k = keyCurrent(r);\n  if (!seenB.has(k)) seenB.set(k, r);\n}\nconst hypotheticalB = Array.from(seenB.values());\n\n/* ---------------------------\n   SITE-LEVEL BASE\n--------------------------- */\nlet unknownSiteRecords = 0;\nfor (const r of logicalRecords) {\n  if (!normalizeSiteKey(r)) unknownSiteRecords += 1;\n}\nconst siteRows = getLatestPerSite(logicalRecords);\n\n/* ---------------------------\n   CATEGORY SUBSETS FROM MAPPING\n--------------------------- */\nconst mappingAlarmNames = Array.isArray(t.mapping_alarm_names)\n  ? t.mapping_alarm_names.map(x => String(x).trim()).filter(Boolean)\n  : [];\nconst mappingAlarmSet = new Set(mappingAlarmNames);\n\nlet categoryLogicalRows = logicalRecords;\nif (mappingAlarmSet.size > 0 && !t.isDirectMode) {\n  categoryLogicalRows = logicalRecords.filter(r => mappingAlarmSet.has(normalizeAlarmName(r)));\n}\n\nconst categorySiteRows = getLatestPerSite(categoryLogicalRows);\n\n/* parked subsets */\nconst categoryParkedRows = filterRowsByAge(categorySiteRows, 24);\n\n/* power / tx metrics based on exact mapping subset when current intent/category matches */\nconst currentIntent = String(t.intent || '').trim();\nconst currentCategory = String(t.category || '').trim().toUpperCase();\n\nlet powerLogical = 0;\nlet txLogical = 0;\nlet powerPhysical = 0;\nlet txPhysical = 0;\n\nif (currentCategory === 'POWER' || ['power_alarm_summary', 'power_aging_summary', 'power_parked_summary'].includes(currentIntent)) {\n  powerLogical = categoryLogicalRows.length;\n  powerPhysical = categorySiteRows.length;\n}\nif (currentCategory === 'TX' || currentIntent === 'tx_alarm_summary') {\n  txLogical = categoryLogicalRows.length;\n  txPhysical = categorySiteRows.length;\n}\n\n/* ---------------------------\n   BREAKDOWNS\n--------------------------- */\nconst officeBreakdown = tallyBy(categorySiteRows, r => r.city);\nconst regionBreakdown = tallyBy(categorySiteRows, r => r.location);\nconst techBreakdown = tallyBy(categorySiteRows, r => r.networktype);\nconst alarmBreakdown = tallyBy(categoryLogicalRows, r => normalizeAlarmName(r) || 'Unknown');\nconst ackBreakdown = tallyBy(categoryLogicalRows, r => r.acknowledged || 'Unknown');\n\nconst parkedOfficeBreakdown = tallyBy(categoryParkedRows, r => r.city);\nconst parkedRegionBreakdown = tallyBy(categoryParkedRows, r => r.location);\nconst parkedTechBreakdown = tallyBy(categoryParkedRows, r => r.networktype);\n\nconst vipSites = categorySiteRows.filter(r => String(r.isvip || '').toLowerCase() === 'yes').length;\nconst hubSites = categorySiteRows.filter(r => String(r.ishub || '').toLowerCase() === 'yes').length;\n\n/* ---------------------------\n   AGING ANALYSIS\n--------------------------- */\nconst categoryAging = computeAging(categorySiteRows);\n\n/* Keep old keys for frontend/debug compatibility */\nconst aging_analysis = {\n  down: (currentCategory === 'SITE_DOWN') ? categoryAging : {},\n  power: (currentCategory === 'POWER') ? categoryAging : {}\n};\n\nreturn [{\n  json: {\n    ...t,\n    records: categoryLogicalRows,\n    site_rows: categorySiteRows,\n    parked_rows: categoryParkedRows,\n\n    api_total: apiRealTotal,\n    logical_count: categoryLogicalRows.length,\n    physical_site_count: categorySiteRows.length,\n\n    breakdowns: {\n      by_office: officeBreakdown,\n      by_region: regionBreakdown,\n      by_technology: techBreakdown,\n      by_alarm: alarmBreakdown,\n      by_acknowledged: ackBreakdown,\n      parked_by_office: parkedOfficeBreakdown,\n      parked_by_region: parkedRegionBreakdown,\n      parked_by_technology: parkedTechBreakdown\n    },\n\n    incident_metrics: {\n      vip_sites: vipSites,\n      hub_sites: hubSites,\n      power_logical: powerLogical,\n      tx_logical: txLogical,\n      power_physical: powerPhysical,\n      tx_physical: txPhysical,\n      unclear_physical: Math.max(0, categorySiteRows.length - (powerPhysical || txPhysical || 0)),\n      unknown_site_records: unknownSiteRecords\n    },\n\n    hypothetical_dedup: {\n      same_site_same_alarm: hypotheticalA.length,\n      same_site_same_alarm_same_time: hypotheticalB.length\n    },\n\n    top_sites: makeTopSites(categoryLogicalRows),\n    parked_top_sites: makeTopSites(categoryParkedRows),\n\n    site_summary_metrics: {\n      active_alarm_count: categoryLogicalRows.length,\n      power_alarm_count: powerLogical,\n      tx_alarm_count: txLogical\n    },\n\n    aging_analysis,\n\n    pagination: {\n      requested_pages: requestedPages,\n      non_empty_pages: nonEmptyPages,\n      failed_pages: failedPageIndices,\n      data_complete: failedPageIndices.length === 0,\n      pagination_warning: paginationWarning,\n      page_sizes: pageSizes,\n      page_meta: pageMeta.slice(0, 12),\n      ended_naturally: endedNaturally,\n      reached_cap: reachedCap,\n      cap_note: reachedCap ? 'Possible additional pages beyond configured max_pages.' : ''\n    }\n  }\n}];"
+      },
+      "id": "v38f-0017",
+      "name": "ENGINE_Normalize And Dedup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3760,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst intent = String(j.intent || '').trim();\nconst category = String(j.category || '').trim().toUpperCase();\nconst recs = j.records || [];\nconst siteRows = j.site_rows || [];\nconst parkedRows = j.parked_rows || [];\nconst first = recs[0] || {};\nconst aging = j.aging_analysis || { down:{}, power:{} };\n\nconst topOffices = (j.breakdowns?.by_office || []).slice(0,10);\nconst topRegions = (j.breakdowns?.by_region || []).slice(0,10);\nconst topTech = (j.breakdowns?.by_technology || []).slice(0,10);\nconst topAlarms = (j.breakdowns?.by_alarm || []).slice(0,15);\nconst topAck = (j.breakdowns?.by_acknowledged || []).slice(0,10);\nconst parkedOffices = (j.breakdowns?.parked_by_office || []).slice(0,10);\nconst parkedRegions = (j.breakdowns?.parked_by_region || []).slice(0,10);\nconst parkedTech = (j.breakdowns?.parked_by_technology || []).slice(0,10);\n\nfunction dotList(arr) {\n  return arr.map(x => `- ${x.name}: ${x.count}`).join('\\n') || '- None';\n}\nfunction tallyVip(vipRows){\n  const m = {};\n  for (const r of vipRows) {\n    const k = String(r.city || 'Unknown').trim() || 'Unknown';\n    m[k] = (m[k] || 0) + 1;\n  }\n  return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count}));\n}\nfunction chart(title, type, series, x_key='label', y_key='value') {\n  return { type, title, x_key, y_key, series };\n}\nfunction table(title, columns, rows) {\n  return { title, columns, rows };\n}\nfunction listToSeries(arr, labelKey='name', valueKey='count') {\n  return (arr || []).map(x => ({ label: x[labelKey], value: x[valueKey] }));\n}\nfunction topSiteRows(arr) {\n  return (arr || []).map(x => ({\n    site: x.site || x.name || 'Unknown',\n    office: x.office || x.city || '',\n    count: x.value != null ? x.value : (x.count || 0)\n  }));\n}\nfunction siteRowsTable(arr) {\n  return (arr || []).map(r => ({\n    site: r.sitecode || r.sitename || 'Unknown',\n    sitename: r.sitename || '',\n    office: r.city || '',\n    region: r.location || '',\n    technology: r.networktype || '',\n    vip: r.isvip || 'No',\n    hub: r.ishub || 'No'\n  }));\n}\nfunction alarmRowsTable(arr) {\n  return (arr || []).map(x => ({\n    alarm_name: x.name || 'Unknown',\n    count: x.count || 0\n  }));\n}\nfunction activeAlarmRows(arr) {\n  return (arr || []).slice(0,100).map(r => ({\n    alarm_name: r.alarmname || r.rawalarmname || 'Unknown',\n    lastoccurrence: r.lastoccurrence || r.firstoccurrence || r.eventtime || r.time || '',\n    severity: r.standardalarmseverity || r.severity || '',\n    acknowledged: r.acknowledged || ''\n  }));\n}\nfunction parkedSiteRows(arr) {\n  return (arr || []).map(r => ({\n    site: r.sitecode || r.sitename || 'Unknown',\n    office: r.city || '',\n    region: r.location || '',\n    technology: r.networktype || '',\n    age_bucket: '>24h'\n  }));\n}\nfunction agingSeries(a) {\n  return [\n    { label: '<2h', value: a['<2h'] || 0 },\n    { label: '2-4h', value: a['2_4h'] || 0 },\n    { label: '4-12h', value: a['4_12h'] || 0 },\n    { label: '>12h', value: a['>12h'] || 0 }\n  ];\n}\nfunction thresholdSeries(a) {\n  return [\n    { label: '>6h', value: a.warning_gt_6h || 0 },\n    { label: '>12h', value: a.critical_gt_12h || 0 },\n    { label: '>24h', value: a.parked_gt_24h || 0 }\n  ];\n}\n\nlet reply = '';\nlet total = 0;\nlet response_type = 'mixed';  // new default for future frontend + keeps text fallback\nlet dashboard_data = null;\nlet summary = {};\nlet charts = {};\nlet tables = {};\n\nif (intent === 'site_down_count') {\n  total = j.physical_site_count;\n  reply = [\n    '═══ Site Down Summary ═══',\n    `- Physical down sites: ${j.physical_site_count}`,\n    `- Logical down entries: ${j.logical_count}`,\n    '',\n    'Office Breakdown',\n    dotList(topOffices.slice(0,5)),\n    '',\n    'Technology Breakdown',\n    dotList(topTech.slice(0,5)),\n    '',\n    'Incident View',\n    `- VIP down sites: ${j.incident_metrics?.vip_sites || 0}`,\n    `- HUB down sites: ${j.incident_metrics?.hub_sites || 0}`,\n    `- Likely power-affected sites: ${j.incident_metrics?.power_physical || 0}`,\n    `- Likely TX-affected sites: ${j.incident_metrics?.tx_physical || 0}`\n  ].join('\\n');\n\n  summary = {\n    total_down_sites: j.physical_site_count || 0,\n    logical_entries: j.logical_count || 0,\n    vip_sites: j.incident_metrics?.vip_sites || 0,\n    hub_sites: j.incident_metrics?.hub_sites || 0\n  };\n  charts = {\n    by_technology: chart('Down Sites by Technology', 'bar', listToSeries(topTech)),\n    by_region: chart('Down Sites by Region', 'bar', listToSeries(topRegions)),\n    by_office: chart('Down Sites by Office', 'bar', listToSeries(topOffices))\n  };\n  tables = {\n    by_office: table('By Office', ['name', 'count'], topOffices),\n    top_sites: table('Top Impacted Sites', ['site', 'office', 'count'], topSiteRows(j.top_sites || []))\n  };\n\n  if ((j.output_view || 'text') === 'dashboard') {\n    response_type = 'dashboard';\n    dashboard_data = {\n      title: 'Down Sites Analysis',\n      subtitle: `${j.time_range?.start_local || ''} to ${j.time_range?.end_local || ''}`,\n      summary: {\n        physical_sites: j.physical_site_count || 0,\n        logical_entries: j.logical_count || 0,\n        vip_sites: j.incident_metrics?.vip_sites || 0,\n        hub_sites: j.incident_metrics?.hub_sites || 0\n      },\n      by_office: topOffices,\n      by_region: topRegions,\n      by_technology: topTech,\n      top_sites: j.top_sites || [],\n      tags: ['Incident','Down','Executive Summary']\n    };\n  }\n}\nelse if (intent === 'site_down_list') {\n  total = j.physical_site_count;\n  const sitePreview = siteRows.slice(0,20).map((r, i) => `${i+1}. ${r.sitecode || r.sitename || 'Unknown'} | ${r.city || 'Unknown'} | VIP: ${r.isvip || 'No'} | HUB: ${r.ishub || 'No'}`).join('\\n');\n  reply = [\n    '═══ Down Sites List ═══',\n    `- Physical down sites: ${j.physical_site_count}`,\n    `- Logical down entries: ${j.logical_count}`,\n    '',\n    'Top Offices',\n    dotList(topOffices.slice(0,5)),\n    '',\n    'Sites',\n    sitePreview || '- No sites found'\n  ].join('\\n');\n\n  summary = {\n    total_down_sites: j.physical_site_count || 0,\n    logical_entries: j.logical_count || 0\n  };\n  charts = {\n    by_office: chart('Down Sites by Office', 'bar', listToSeries(topOffices))\n  };\n  tables = {\n    sites: table('Down Sites', ['site', 'sitename', 'office', 'region', 'technology', 'vip', 'hub'], siteRowsTable(siteRows))\n  };\n}\nelse if (intent === 'power_alarm_summary') {\n  total = j.incident_metrics?.power_logical || j.logical_count;\n  reply = [\n    '═══ Power Alarm Summary ═══',\n    `- Physical impacted sites: ${j.incident_metrics?.power_physical || 0}`,\n    `- Logical power alarm entries: ${j.incident_metrics?.power_logical || 0}`,\n    '',\n    'Top Power Alarm Types',\n    dotList(topAlarms.slice(0,5)),\n    '',\n    'Breakdown by Office',\n    dotList(topOffices.slice(0,5)),\n    '',\n    'Impact View',\n    `- VIP impacted sites: ${j.incident_metrics?.vip_sites || 0}`,\n    `- HUB impacted sites: ${j.incident_metrics?.hub_sites || 0}`\n  ].join('\\n');\n\n  summary = {\n    physical_sites: j.incident_metrics?.power_physical || j.physical_site_count || 0,\n    logical_entries: j.incident_metrics?.power_logical || j.logical_count || 0,\n    vip_sites: j.incident_metrics?.vip_sites || 0,\n    hub_sites: j.incident_metrics?.hub_sites || 0\n  };\n  charts = {\n    by_office: chart('Power Impact by Office', 'bar', listToSeries(topOffices)),\n    by_technology: chart('Power Impact by Technology', 'bar', listToSeries(topTech))\n  };\n  tables = {\n    top_alarms: table('Top Power Alarm Types', ['alarm_name', 'count'], alarmRowsTable(topAlarms)),\n    top_sites: table('Top Power Sites', ['site', 'office', 'count'], topSiteRows(j.top_sites || []))\n  };\n}\nelse if (intent === 'tx_alarm_summary') {\n  total = j.incident_metrics?.tx_logical || j.logical_count;\n  reply = [\n    '═══ TX Alarm Summary ═══',\n    `- Physical impacted sites: ${j.incident_metrics?.tx_physical || 0}`,\n    `- Logical TX alarm entries: ${j.incident_metrics?.tx_logical || 0}`,\n    '',\n    'Top TX Alarm Types',\n    dotList(topAlarms.slice(0,5)),\n    '',\n    'Breakdown by Office',\n    dotList(topOffices.slice(0,5)),\n    '',\n    'Technology Breakdown',\n    dotList(topTech.slice(0,5))\n  ].join('\\n');\n\n  summary = {\n    physical_sites: j.incident_metrics?.tx_physical || j.physical_site_count || 0,\n    logical_entries: j.incident_metrics?.tx_logical || j.logical_count || 0,\n    vip_sites: j.incident_metrics?.vip_sites || 0,\n    hub_sites: j.incident_metrics?.hub_sites || 0\n  };\n  charts = {\n    by_office: chart('TX Impact by Office', 'bar', listToSeries(topOffices)),\n    by_technology: chart('TX Impact by Technology', 'bar', listToSeries(topTech))\n  };\n  tables = {\n    top_alarms: table('Top TX Alarm Types', ['alarm_name', 'count'], alarmRowsTable(topAlarms)),\n    top_sites: table('Top TX Sites', ['site', 'office', 'count'], topSiteRows(j.top_sites || []))\n  };\n}\nelse if (intent === 'vip_down_sites') {\n  const vipRows = siteRows.filter(r => String(r.isvip||'').toLowerCase() === 'yes');\n  total = vipRows.length;\n  const vipList = vipRows.slice(0,20).map((r, i) => `${i+1}. ${r.sitecode || r.sitename || 'Unknown'} | ${r.city || 'Unknown'} | HUB: ${r.ishub || 'No'}`).join('\\n');\n  reply = [\n    '═══ VIP Down Sites Summary ═══',\n    `- VIP physical down sites: ${vipRows.length}`,\n    `- VIP logical down entries: ${recs.filter(r => String(r.isvip||'').toLowerCase()==='yes').length}`,\n    '',\n    'Breakdown by Office',\n    dotList(tallyVip(vipRows).slice(0,5)),\n    '',\n    'VIP Site List',\n    vipList || '- No VIP down sites found'\n  ].join('\\n');\n\n  summary = {\n    vip_down_sites: vipRows.length,\n    vip_logical_entries: recs.filter(r => String(r.isvip||'').toLowerCase()==='yes').length\n  };\n  charts = {\n    by_office: chart('VIP Down by Office', 'bar', listToSeries(tallyVip(vipRows)))\n  };\n  tables = {\n    vip_sites: table('VIP Down Sites', ['site', 'office', 'region', 'hub'], vipRows.map(r => ({\n      site: r.sitecode || r.sitename || 'Unknown',\n      office: r.city || '',\n      region: r.location || '',\n      hub: r.ishub || 'No'\n    })))\n  };\n}\nelse if (intent === 'down_aging_summary') {\n  const a = aging.down || {};\n  total = j.physical_site_count;\n\n  reply = [\n    '═══ Down Sites Aging Summary ═══',\n    `- Physical Sites: ${j.physical_site_count}`,\n    '',\n    'Aging Distribution',\n    `- <2h: ${a['<2h'] || 0}`,\n    `- 2–4h: ${a['2_4h'] || 0}`,\n    `- 4–12h: ${a['4_12h'] || 0}`,\n    `- >12h: ${a['>12h'] || 0}`,\n    '',\n    'Threshold View',\n    `- Sites above 6h: ${a.warning_gt_6h || 0}`,\n    `- Sites above 12h: ${a.critical_gt_12h || 0}`,\n    `- Sites above 24h (Parked): ${a.parked_gt_24h || 0}`,\n    '',\n    'Office Breakdown',\n    dotList(topOffices.slice(0,5))\n  ].join('\\n');\n\n  summary = {\n    physical_sites: j.physical_site_count || 0,\n    logical_entries: j.logical_count || 0,\n    vip_sites: j.incident_metrics?.vip_sites || 0,\n    hub_sites: j.incident_metrics?.hub_sites || 0\n  };\n  charts = {\n    aging_distribution: chart('Down Aging Distribution', 'bar', agingSeries(a)),\n    threshold_view: chart('Down Threshold View', 'bar', thresholdSeries(a)),\n    by_office: chart('Down Sites by Office', 'bar', listToSeries(topOffices))\n  };\n  tables = {\n    by_office: table('By Office', ['name', 'count'], topOffices),\n    top_sites: table('Top Down Sites', ['site', 'office', 'count'], topSiteRows(j.top_sites || []))\n  };\n\n  if ((j.output_view || 'text') === 'dashboard') {\n    response_type = 'dashboard';\n    dashboard_data = {\n      title: 'Down Sites Aging Summary',\n      subtitle: `${j.time_range?.start_local || ''} to ${j.time_range?.end_local || ''}`,\n      summary: {\n        physical_sites: j.physical_site_count || 0,\n        logical_entries: j.logical_count || 0,\n        vip_sites: j.incident_metrics?.vip_sites || 0,\n        hub_sites: j.incident_metrics?.hub_sites || 0\n      },\n      by_office: j.breakdowns?.by_office || [],\n      by_region: j.breakdowns?.by_region || [],\n      by_technology: j.breakdowns?.by_technology || [],\n      top_sites: j.top_sites || [],\n      tags: ['Incident', 'Aging', 'Down'],\n      aging: a\n    };\n  }\n}\nelse if (intent === 'power_aging_summary') {\n  const a = aging.power || {};\n  total = j.physical_site_count;\n\n  reply = [\n    '═══ Power Alarms Aging Summary ═══',\n    `- Physical Sites: ${j.physical_site_count}`,\n    '',\n    'Aging Distribution',\n    `- <2h: ${a['<2h'] || 0}`,\n    `- 2–4h: ${a['2_4h'] || 0}`,\n    `- 4–12h: ${a['4_12h'] || 0}`,\n    `- >12h: ${a['>12h'] || 0}`,\n    '',\n    'Threshold View',\n    `- Sites above 6h: ${a.warning_gt_6h || 0}`,\n    `- Sites above 12h: ${a.critical_gt_12h || 0}`,\n    `- Sites above 24h (Parked): ${a.parked_gt_24h || 0}`,\n    '',\n    'Office Breakdown',\n    dotList(topOffices.slice(0,5))\n  ].join('\\n');\n\n  summary = {\n    physical_sites: j.physical_site_count || 0,\n    logical_entries: j.logical_count || 0,\n    vip_sites: j.incident_metrics?.vip_sites || 0,\n    hub_sites: j.incident_metrics?.hub_sites || 0\n  };\n  charts = {\n    aging_distribution: chart('Power Aging Distribution', 'bar', agingSeries(a)),\n    threshold_view: chart('Power Threshold View', 'bar', thresholdSeries(a)),\n    by_office: chart('Power Sites by Office', 'bar', listToSeries(topOffices))\n  };\n  tables = {\n    by_office: table('By Office', ['name', 'count'], topOffices),\n    top_sites: table('Top Power Sites', ['site', 'office', 'count'], topSiteRows(j.top_sites || []))\n  };\n\n  if ((j.output_view || 'text') === 'dashboard') {\n    response_type = 'dashboard';\n    dashboard_data = {\n      title: 'Power Alarms Aging Summary',\n      subtitle: `${j.time_range?.start_local || ''} to ${j.time_range?.end_local || ''}`,\n      summary: {\n        physical_sites: j.physical_site_count || 0,\n        logical_entries: j.logical_count || 0,\n        vip_sites: j.incident_metrics?.vip_sites || 0,\n        hub_sites: j.incident_metrics?.hub_sites || 0\n      },\n      by_office: j.breakdowns?.by_office || [],\n      by_region: j.breakdowns?.by_region || [],\n      by_technology: j.breakdowns?.by_technology || [],\n      top_sites: j.top_sites || [],\n      tags: ['Incident', 'Aging', 'Power'],\n      aging: a\n    };\n  }\n}\nelse if (intent === 'down_parked_summary') {\n  const a = aging.down || {};\n  total = a.parked_gt_24h || 0;\n\n  reply = [\n    '═══ Down Parked Sites (>24h) ═══',\n    `- Total Parked (>24h): ${a.parked_gt_24h || 0}`,\n    `- Total Physical Down: ${j.physical_site_count}`,\n    '',\n    'Full Aging Context',\n    `- Sites above 6h: ${a.warning_gt_6h || 0}`,\n    `- Sites above 12h: ${a.critical_gt_12h || 0}`,\n    `- Sites above 24h (Parked): ${a.parked_gt_24h || 0}`,\n    '',\n    'Office Breakdown',\n    dotList(parkedOffices.slice(0,5))\n  ].join('\\n');\n\n  summary = {\n    parked_sites: a.parked_gt_24h || 0,\n    physical_sites: j.physical_site_count || 0,\n    logical_entries: j.logical_count || 0\n  };\n  charts = {\n    threshold_view: chart('Down Threshold View', 'bar', thresholdSeries(a)),\n    parked_by_office: chart('Parked Down by Office', 'bar', listToSeries(parkedOffices))\n  };\n  tables = {\n    parked_sites: table('Parked Down Sites', ['site', 'office', 'region', 'technology', 'age_bucket'], parkedSiteRows(parkedRows))\n  };\n\n  if ((j.output_view || 'text') === 'dashboard') {\n    response_type = 'dashboard';\n    dashboard_data = {\n      title: 'Down Parked Sites (>24h)',\n      subtitle: `${j.time_range?.start_local || ''} to ${j.time_range?.end_local || ''}`,\n      summary: {\n        physical_sites: a.parked_gt_24h || 0,\n        logical_entries: j.logical_count || 0,\n        vip_sites: j.incident_metrics?.vip_sites || 0,\n        hub_sites: j.incident_metrics?.hub_sites || 0\n      },\n      by_office: j.breakdowns?.parked_by_office || [],\n      by_region: j.breakdowns?.parked_by_region || [],\n      by_technology: j.breakdowns?.parked_by_technology || [],\n      top_sites: j.parked_top_sites || [],\n      tags: ['Incident', 'Parked', 'Down'],\n      aging: a\n    };\n  }\n}\nelse if (intent === 'power_parked_summary') {\n  const a = aging.power || {};\n  total = a.parked_gt_24h || 0;\n\n  reply = [\n    '═══ Power Parked Sites (>24h) ═══',\n    `- Total Parked (>24h): ${a.parked_gt_24h || 0}`,\n    `- Total Physical Power-Affected: ${j.physical_site_count}`,\n    '',\n    'Full Aging Context',\n    `- Sites above 6h: ${a.warning_gt_6h || 0}`,\n    `- Sites above 12h: ${a.critical_gt_12h || 0}`,\n    `- Sites above 24h (Parked): ${a.parked_gt_24h || 0}`,\n    '',\n    'Office Breakdown',\n    dotList(parkedOffices.slice(0,5))\n  ].join('\\n');\n\n  summary = {\n    parked_sites: a.parked_gt_24h || 0,\n    physical_sites: j.physical_site_count || 0,\n    logical_entries: j.logical_count || 0\n  };\n  charts = {\n    threshold_view: chart('Power Threshold View', 'bar', thresholdSeries(a)),\n    parked_by_office: chart('Parked Power by Office', 'bar', listToSeries(parkedOffices))\n  };\n  tables = {\n    parked_sites: table('Parked Power Sites', ['site', 'office', 'region', 'technology', 'age_bucket'], parkedSiteRows(parkedRows))\n  };\n\n  if ((j.output_view || 'text') === 'dashboard') {\n    response_type = 'dashboard';\n    dashboard_data = {\n      title: 'Power Parked Sites (>24h)',\n      subtitle: `${j.time_range?.start_local || ''} to ${j.time_range?.end_local || ''}`,\n      summary: {\n        physical_sites: a.parked_gt_24h || 0,\n        logical_entries: j.logical_count || 0,\n        vip_sites: j.incident_metrics?.vip_sites || 0,\n        hub_sites: j.incident_metrics?.hub_sites || 0\n      },\n      by_office: j.breakdowns?.parked_by_office || [],\n      by_region: j.breakdowns?.parked_by_region || [],\n      by_technology: j.breakdowns?.parked_by_technology || [],\n      top_sites: j.parked_top_sites || [],\n      tags: ['Incident', 'Parked', 'Power'],\n      aging: a\n    };\n  }\n}\nelse if (intent === 'site_active_alarms') {\n  total = j.logical_count;\n  reply = [\n    `═══ Active Alarms on Site ${j.filters.sitecode || first.sitecode || ''} ═══`,\n    `- Total active alarms: ${j.logical_count}`,\n    `- Power alarms: ${j.site_summary_metrics?.power_alarm_count || 0}`,\n    `- TX alarms: ${j.site_summary_metrics?.tx_alarm_count || 0}`,\n    `- Other alarms: ${Math.max(0, j.logical_count - (j.site_summary_metrics?.power_alarm_count || 0) - (j.site_summary_metrics?.tx_alarm_count || 0))}`,\n    '',\n    'Top Alarm Types',\n    dotList(topAlarms.slice(0,5)),\n    '',\n    'Site Context',\n    `- Office: ${first.city || '—'}`,\n    `- Region: ${first.location || '—'}`,\n    `- VIP: ${first.isvip || '—'}`,\n    `- HUB: ${first.ishub || '—'}`,\n    `- Site Down Flag: ${first.sitedownflag || '—'}`,\n    `- Site Power Off: ${first.sitepoweroff || '—'}`\n  ].join('\\n');\n\n  summary = {\n    sitecode: j.filters.sitecode || first.sitecode || '',\n    active_alarm_count: j.logical_count || 0,\n    power_alarm_count: j.site_summary_metrics?.power_alarm_count || 0,\n    tx_alarm_count: j.site_summary_metrics?.tx_alarm_count || 0,\n    other_alarm_count: Math.max(0, j.logical_count - (j.site_summary_metrics?.power_alarm_count || 0) - (j.site_summary_metrics?.tx_alarm_count || 0))\n  };\n  charts = {\n    alarm_mix: chart('Alarm Mix', 'pie', [\n      { label: 'Power', value: j.site_summary_metrics?.power_alarm_count || 0 },\n      { label: 'TX', value: j.site_summary_metrics?.tx_alarm_count || 0 },\n      { label: 'Other', value: Math.max(0, j.logical_count - (j.site_summary_metrics?.power_alarm_count || 0) - (j.site_summary_metrics?.tx_alarm_count || 0)) }\n    ])\n  };\n  tables = {\n    active_alarms: table('Active Alarms', ['alarm_name', 'lastoccurrence', 'severity', 'acknowledged'], activeAlarmRows(recs))\n  };\n}\nelse if (intent === 'site_incident_summary' || j.request_profile === 'site_incident_summary') {\n  total = j.site_summary_metrics.active_alarm_count || 0;\n  const site = j.filters.sitecode || first.sitecode || '';\n  const siteName = first.sitename || '';\n  const location = first.location || j.geography.location_resolved || '';\n  const city = first.city || j.geography.office_resolved || '';\n  const vip = first.isvip || '';\n  const hub = first.ishub || '';\n  const priority = first.sitepriority || '';\n  const down = first.sitedownflag || '';\n  const poweroff = first.sitepoweroff || '';\n  let hint = 'unknown';\n  if ((j.site_summary_metrics.power_alarm_count || 0) > 0) hint = 'likely_power';\n  else if ((j.site_summary_metrics.tx_alarm_count || 0) > 0) hint = 'likely_tx';\n\n  reply = [\n    '═══ Site Incident Full Analysis ═══',\n    '[1] Site Identity',\n    `- Site Code: ${site || '—'}`,\n    `- Site Name: ${siteName || '—'}`,\n    `- Region: ${location || '—'}`,\n    `- Office: ${city || '—'}`,\n    `- VIP: ${vip || '—'}`,\n    `- HUB: ${hub || '—'}`,\n    `- Priority: ${priority || '—'}`,\n    '',\n    '[2] Incident Totals',\n    `- Total active alarms: ${j.site_summary_metrics.active_alarm_count || 0}`,\n    `- Power alarms: ${j.site_summary_metrics.power_alarm_count || 0}`,\n    `- TX alarms: ${j.site_summary_metrics.tx_alarm_count || 0}`,\n    '',\n    '[3] Root Cause Hint',\n    `- Primary hint: ${hint}`,\n    '- Confidence: low',\n    '',\n    '[4] Current Impact',\n    `- Site down flag: ${down || '—'}`,\n    `- Site power off: ${poweroff || '—'}`,\n    '',\n    '[5] Alarm Evidence',\n    dotList(topAlarms.slice(0,5)),\n    '',\n    '[6] Operational Evidence',\n    '- Acknowledged split:',\n    dotList(topAck.slice(0,5)),\n    '',\n    '[7] Missing External Data',\n    '- Distance: not connected',\n    '- Power source: not connected',\n    '- Battery health: not connected',\n    '- AVA loss: not connected',\n    '- Traffic loss: not connected',\n    '- Last intervention actions: not connected'\n  ].join('\\n');\n\n  summary = {\n    sitecode: site || '',\n    sitename: siteName || '',\n    office: city || '',\n    region: location || '',\n    vip: vip || '',\n    hub: hub || '',\n    priority: priority || '',\n    site_down_flag: down || '',\n    site_power_off: poweroff || '',\n    active_alarm_count: j.site_summary_metrics?.active_alarm_count || 0,\n    power_alarm_count: j.site_summary_metrics?.power_alarm_count || 0,\n    tx_alarm_count: j.site_summary_metrics?.tx_alarm_count || 0,\n    root_cause_hint: hint\n  };\n  charts = {\n    alarm_mix: chart('Alarm Mix', 'pie', [\n      { label: 'Power', value: j.site_summary_metrics?.power_alarm_count || 0 },\n      { label: 'TX', value: j.site_summary_metrics?.tx_alarm_count || 0 },\n      { label: 'Other', value: Math.max(0, (j.site_summary_metrics?.active_alarm_count || 0) - (j.site_summary_metrics?.power_alarm_count || 0) - (j.site_summary_metrics?.tx_alarm_count || 0)) }\n    ])\n  };\n  tables = {\n    alarm_evidence: table('Alarm Evidence', ['alarm_name', 'count'], alarmRowsTable(topAlarms.slice(0,10))),\n    ack_split: table('Acknowledgement Split', ['name', 'count'], topAck)\n  };\n}\nelse {\n  total = j.logical_count || 0;\n  reply = `Result count: ${total}`;\n  summary = { total };\n  charts = {};\n  tables = {};\n}\n\nconst filters = {\n  sitecode: j.filters?.sitecode || '',\n  vendor: j.filters?.vendor || '',\n  technology: j.filters?.technology || '',\n  severity: j.filters?.severity || '',\n  acknowledged: j.filters?.acknowledged || '',\n  isvip: j.filters?.isvip || '',\n  domain: j.filters?.domain || '',\n  region: j.geography?.location_resolved || '',\n  office: j.geography?.office_resolved || ''\n};\n\nconst meta = {\n  time_range: j.time_range || {},\n  generated_at: new Date().toISOString(),\n  pagination: j.pagination || {},\n  data_quality: {\n    unknown_site_records: j.incident_metrics?.unknown_site_records || 0\n  }\n};\n\nreturn [{\n  json: {\n    ...j,\n    version: 'v1',\n    response_type,\n    reply,\n    total,\n    summary,\n    charts,\n    tables,\n    filters,\n    meta,\n    dashboard_data\n  }\n}];"
+      },
+      "id": "v38f-0018",
+      "name": "ENGINE_Format Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3980,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = $json;\nconst ai = $items('INT_Parse AI Output')[0]?.json || {};\nconst ctx = $items('CORE_Build Unified Context')[0]?.json || {};\nconst sqlNode = $items('ENGINE_Build SQL')[0]?.json || {};\nconst sqlRows = $items('DB_Get Alarm Names') || [];\nconst apiPayloadNode = $items('ENGINE_Build API Payload')[0]?.json || {};\nconst norm = $items('ENGINE_Normalize And Dedup')[0]?.json || {};\nconst finalReply = String(out.reply || '');\nconst finalTotal = Number(out.total || 0);\nconst sql = sqlNode.sql || '';\nconst alarmNames = sqlRows.map(r => r.json?.alarm_name).filter(Boolean);\nconst apiPayload = apiPayloadNode.api_payload || {};\nconst apiTotal = Number(norm.api_total || 0);\nconst logicalEntryCount = Number(norm.logical_count || 0);\nconst physicalSiteCount = Number(norm.physical_site_count || 0);\n\nconst debug = {\n  '1_user_request': { question: ai.user_question || ctx.user_question || '', debug_mode: !!ai.debugMode, timestamp: new Date().toISOString(), elapsed_label: 'V3.8 Foundation' },\n  '2_ai_raw_output': { raw: ai._aiRaw || '(not captured)' },\n  '3_ai_interpretation': { mode: ai.mode || ctx.mode || '', intent: out.intent || ai.intent || ctx.intent || '', category: out.category || ai.category || ctx.category || '', geo_type: ai.geo_type || ctx.geography?.geo_type || 'none', technology: ai.technology || ai.networktype || ctx.filters?.technology || '', filters: ctx.filters || {}, output_view: ctx.output_view || 'text' },\n  '4_geography': { region_input: ai.region_input || ctx.geography?.region_input || '', office_input: ai.office_input || ctx.geography?.office_input || '', geo_type: ai.geo_type || ctx.geography?.geo_type || 'none', location_resolved: ctx.geography?.location_resolved || '', office_resolved: ctx.geography?.office_resolved || '' },\n  '5_sql_mapping': { sql_executed: sql, rows_returned: sqlRows.length, alarm_names: alarmNames },\n  '6_time_range': { start_local: ctx.time_range?.start_local || '', end_local: ctx.time_range?.end_local || '', api_type: apiPayload.type || 0 },\n  '7_api_payload': { sent: apiPayload },\n  '8_api_response': { total: apiTotal, records_returned: Array.isArray(norm.records) ? norm.records.length : 0, pagination: norm.pagination || {} },\n  '9_post_filter_dedup': {\n    logical_no_dedup: logicalEntryCount,\n    physical_sites: physicalSiteCount,\n    unknown_site_records: norm.incident_metrics?.unknown_site_records || 0,\n    hypothetical_same_site_same_alarm: norm.hypothetical_dedup?.same_site_same_alarm || 0,\n    hypothetical_same_site_same_alarm_same_time: norm.hypothetical_dedup?.same_site_same_alarm_same_time || 0\n  },\n  '10_count_logic': { count_only: !!ctx.count_only, physical_site_total: physicalSiteCount, logical_entry_total: logicalEntryCount, final_reported: finalTotal },\n  '11_final_reply': { preview: finalReply.slice(0, 300) },\n  '12_v38_foundation': {\n    request_profile: ctx.request_profile || '',\n    analysis_scope: ctx.analysis_scope || '',\n    anchor_type: ctx.anchor_type || '',\n    mapping_alarm_names_count: alarmNames.length,\n    is_direct_mode: !!apiPayloadNode.isDirectMode,\n    by_office: norm.breakdowns?.by_office || [],\n    by_region: norm.breakdowns?.by_region || [],\n    by_technology: norm.breakdowns?.by_technology || [],\n    incident_metrics: norm.incident_metrics || {},\n    hypothetical_dedup: norm.hypothetical_dedup || {},\n    response_type: out.response_type || 'mixed',\n    pagination: norm.pagination || {},\n    aging_analysis: norm.aging_analysis || {}\n  }\n};\n\nreturn [{\n  json: {\n    version: out.version || 'v1',\n    response_type: out.response_type || 'mixed',\n    intent: out.intent || ctx.intent || ai.intent || '',\n    category: out.category || ctx.category || ai.category || '',\n    reply: finalReply,\n    total: finalTotal,\n    summary: out.summary || {},\n    charts: out.charts || {},\n    tables: out.tables || {},\n    filters: out.filters || {},\n    meta: out.meta || {},\n    debug,\n    dashboard_data: out.dashboard_data || null\n  }\n}];"
+      },
+      "id": "v38f-0019",
+      "name": "OUT_Build Debug Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "v38f-0020",
+      "name": "OUT_Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4420,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $json;\nconst broadIntents = ['site_down_count','site_down_list','power_alarm_summary','tx_alarm_summary','vip_down_sites','down_aging_summary','power_aging_summary','down_parked_summary','power_parked_summary'];\nconst agingIntents = ['down_aging_summary','power_aging_summary','down_parked_summary','power_parked_summary'];\nconst isBroad = broadIntents.includes(base.intent);\nconst isAging = agingIntents.includes(base.intent);\n\nconst limit = Number(base.api_payload?.limit || 1000);\nconst maxPages = isAging ? 25 : (isBroad ? 10 : 1);\n\nconst out = [];\nfor (let i = 0; i < maxPages; i++) {\n  const cloned = JSON.parse(JSON.stringify(base));\n  cloned.api_payload = cloned.api_payload || {};\n  cloned.api_payload.start = i * limit;\n  cloned.api_payload.limit = limit;\n  cloned._page = {\n    index: i,\n    start: cloned.api_payload.start,\n    limit,\n    max_pages: maxPages,\n    is_broad: isBroad,\n    is_aging: isAging\n  };\n  out.push({ json: cloned });\n}\nreturn out;"
+      },
+      "id": "v38f-0015b",
+      "name": "ENGINE_Prepare Page Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3430,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "INT_Webhook": {
+      "main": [
+        [
+          {
+            "node": "INT_Extract Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INT_Extract Message": {
+      "main": [
+        [
+          {
+            "node": "LLM_Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM_Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INT_Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "INT_Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INT_Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "INT_Operational Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INT_Operational Guardrails": {
+      "main": [
+        [
+          {
+            "node": "CORE_Build Unified Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CORE_Build Unified Context": {
+      "main": [
+        [
+          {
+            "node": "ROUTE_Is Free Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTE_Is Free Chat": {
+      "main": [
+        [
+          {
+            "node": "FREE_Format",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ROUTE_Is Placeholder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTE_Is Placeholder": {
+      "main": [
+        [
+          {
+            "node": "PLACEHOLDER_Format",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ENGINE_Build SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FREE_Format": {
+      "main": [
+        [
+          {
+            "node": "OUT_Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PLACEHOLDER_Format": {
+      "main": [
+        [
+          {
+            "node": "OUT_Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENGINE_Build SQL": {
+      "main": [
+        [
+          {
+            "node": "DB_Get Alarm Names",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB_Get Alarm Names": {
+      "main": [
+        [
+          {
+            "node": "ENGINE_Build API Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENGINE_Build API Payload": {
+      "main": [
+        [
+          {
+            "node": "ENGINE_Prepare Page Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENGINE_Call Alarm API": {
+      "main": [
+        [
+          {
+            "node": "ENGINE_Normalize And Dedup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENGINE_Normalize And Dedup": {
+      "main": [
+        [
+          {
+            "node": "ENGINE_Format Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENGINE_Format Reply": {
+      "main": [
+        [
+          {
+            "node": "OUT_Build Debug Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OUT_Build Debug Response": {
+      "main": [
+        [
+          {
+            "node": "OUT_Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENGINE_Prepare Page Requests": {
+      "main": [
+        [
+          {
+            "node": "ENGINE_Call Alarm API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "noc-ai-v38-foundation-if-router-001",
+  "meta": {
+    "instanceId": "generated-v38-foundation-if-router"
+  },
+  "id": "NOCAISQLAgentV38FoundationIFRouter",
+  "tags": []
+}

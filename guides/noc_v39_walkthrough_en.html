@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>NOC AI V3.9 — Node-by-Node Walkthrough</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#080c14;--panel:#111827;--panel-2:#161e30;--panel-3:#1c2540;
+      --border:#1e2d4a;--text:#eef2ff;--muted:#7b8ab0;
+      --red:#ef4444;--orange:#f97316;--yellow:#f59e0b;
+      --green:#22c55e;--blue:#3b82f6;--purple:#8b5cf6;--cyan:#06b6d4;
+      --teal:#14b8a6;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.7;min-height:100vh}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+
+    /* HERO */
+    .hero{
+      background:radial-gradient(ellipse 80% 50% at top right,rgba(59,130,246,.12),transparent 55%),
+                 linear-gradient(180deg,#0a101e,#080c14);
+      padding:60px 40px 50px;text-align:center;border-bottom:1px solid var(--border);
+    }
+    .hero-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:999px;
+      border:1px solid rgba(59,130,246,.3);background:rgba(59,130,246,.07);
+      font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:.5px;margin-bottom:18px}
+    .hero h1{font-size:clamp(24px,3.5vw,40px);font-weight:900;letter-spacing:-.4px;margin-bottom:12px}
+    .hero h1 .r{color:var(--red)} .hero h1 .b{color:var(--blue)}
+    .hero p{color:var(--muted);font-size:14px;max-width:520px;margin:0 auto}
+
+    /* FLOW OVERVIEW */
+    .flow-bar{
+      display:flex;align-items:center;justify-content:center;
+      flex-wrap:wrap;gap:6px;
+      padding:20px 28px;border-bottom:1px solid var(--border);
+      background:var(--panel);overflow-x:auto;
+    }
+    .fn{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
+    .fb{
+      padding:5px 11px;border-radius:8px;border:1px solid var(--border);
+      background:var(--panel-2);font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer;
+      transition:all .15s;text-align:center;
+    }
+    .fb:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+    .fb.int{border-color:rgba(59,130,246,.35);color:#93c5fd}
+    .fb.llm{border-color:rgba(139,92,246,.35);color:#c4b5fd}
+    .fb.core{border-color:rgba(20,184,166,.35);color:#5eead4}
+    .fb.route{border-color:rgba(245,158,11,.35);color:#fcd34d;border-style:dashed}
+    .fb.eng{border-color:rgba(249,115,22,.35);color:#fdba74}
+    .fb.db{border-color:rgba(6,182,212,.35);color:#67e8f9}
+    .fb.out{border-color:rgba(34,197,94,.35);color:#86efac}
+    .fb.v39{border-color:rgba(239,68,68,.4);border-width:2px;}
+    .fa{font-size:13px;color:var(--border);flex-shrink:0;line-height:1;margin:0 2px}
+    .fl{font-size:9px;color:var(--muted);font-weight:600}
+
+    /* LAYOUT */
+    .layout{display:flex;height:calc(100vh - 195px);overflow:hidden}
+    .sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--border);
+      background:var(--panel);overflow-y:auto;padding:10px}
+    .main-content{flex:1;overflow-y:auto;padding:28px}
+
+    .nav-item{
+      width:100%;display:flex;align-items:center;gap:8px;
+      padding:8px 10px;border-radius:8px;border:none;background:none;
+      cursor:pointer;font:inherit;font-size:12px;font-weight:600;text-align:left;
+      color:var(--muted);transition:all .15s;margin-bottom:2px;
+    }
+    .nav-item:hover{background:var(--panel-2);color:var(--text)}
+    .nav-item.active{background:var(--panel-2);color:var(--text);border-left:2px solid var(--blue)}
+    .nav-item .ni{font-size:14px;flex-shrink:0}
+    .nav-label{display:block;font-size:9px;color:var(--muted);margin:10px 6px 4px;
+      text-transform:uppercase;letter-spacing:.5px;font-weight:800}
+
+    /* NODE CARD */
+    .node-card{margin-bottom:32px;animation:fadein .25s ease}
+    @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    .node-header{
+      display:flex;align-items:center;gap:12px;
+      padding:16px 20px;border-radius:14px 14px 0 0;
+      border:1px solid var(--border);border-bottom:none;
+    }
+    .node-icon{width:42px;height:42px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .node-meta h2{font-size:16px;font-weight:800;margin-bottom:2px}
+    .node-meta .id{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+    .node-type-badge{margin-left:auto;padding:4px 10px;border-radius:6px;
+      font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0}
+    .v39-tag{margin-left:6px;padding:2px 8px;border-radius:999px;
+      background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
+      color:#fca5a5;font-size:9px;font-weight:800}
+
+    .node-body{
+      border:1px solid var(--border);border-top:none;
+      border-radius:0 0 14px 14px;background:var(--panel);
+      overflow:hidden;
+    }
+
+    /* sections */
+    .ns{padding:16px 20px;border-bottom:1px solid var(--border)}
+    .ns:last-child{border-bottom:none}
+    .ns-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+      color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+    .ns-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+    p.body-text{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:8px}
+    p.body-text strong{color:var(--text)}
+
+    .cond{
+      padding:9px 14px;border-radius:8px;margin-bottom:6px;
+      font-size:12.5px;line-height:1.6;
+    }
+    .cond.if  {background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.18);color:var(--text)}
+    .cond.then{background:rgba(34,197,94,.05) ;border:1px solid rgba(34,197,94,.15) ;color:var(--text)}
+    .cond.else{background:rgba(245,158,11,.05) ;border:1px solid rgba(245,158,11,.15);color:var(--text)}
+    .cond em  {font-style:normal;font-weight:700}
+    .cond.if em {color:#93c5fd} .cond.then em {color:#86efac} .cond.else em {color:#fcd34d}
+    .cond.warn{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18)}
+    .cond.warn em{color:#fca5a5}
+
+    /* Examples */
+    .examples-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    @media(max-width:700px){.examples-grid{grid-template-columns:1fr}}
+    .ex{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+    .ex-q{padding:8px 12px;background:rgba(59,130,246,.07);
+      font-size:12px;font-weight:600;border-bottom:1px solid var(--border);color:#93c5fd}
+    .ex-q span{font-size:10px;color:var(--muted);font-weight:400}
+    .ex-body{padding:10px 12px;background:var(--panel-2);display:grid;gap:5px}
+    .ex-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+    .ex-key{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px}
+    .ex-val{font-weight:700;padding:2px 7px;border-radius:5px;
+      background:var(--panel-3);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)}
+    .ex-val.yes{background:rgba(34,197,94,.1);color:#86efac}
+    .ex-val.no{background:rgba(245,158,11,.1);color:#fcd34d}
+    .ex-val.err{background:rgba(239,68,68,.1);color:#fca5a5}
+
+    /* Code */
+    .code{
+      background:#060a12;border:1px solid var(--border);border-radius:10px;
+      padding:14px 16px;font:12px/1.7 'JetBrains Mono',monospace;
+      color:#a5f3fc;overflow-x:auto;white-space:pre;margin:4px 0;
+    }
+    .code .cm{color:#4b6070}.code .kw{color:#fbbf24}.code .st{color:#86efac}
+    .code .nu{color:#c4b5fd}.code .fn{color:#60a5fa}.code .at{color:#f97316}
+
+    /* fix badge */
+    .fix-badge{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 10px;border-radius:6px;font-size:10px;font-weight:800;
+      background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5;
+    }
+
+    .divider{height:1px;background:var(--border);margin:24px 0}
+
+    footer{padding:24px;text-align:center;border-top:1px solid var(--border);
+      font-size:11px;color:var(--muted)}
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">📖 Technical Reference</div>
+  <h1>NOC AI <span class="b">V3.9</span> — <span class="r">Node-by-Node</span> Walkthrough</h1>
+  <p>Every node explained: what it does, why it exists, the conditions it applies, and real examples.</p>
+</div>
+
+<!-- FLOW BAR -->
+<div class="flow-bar">
+  <div class="fn"><div class="fb int" onclick="goto(0)">🔗 Webhook</div><div class="fl">INT-1</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb int" onclick="goto(1)">📥 Extract</div><div class="fl">INT-2</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb llm" onclick="goto(2)">🧠 Build Prompt</div><div class="fl">LLM-3</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb llm" onclick="goto(3)">🤖 LLM Chain</div><div class="fl">LLM-4</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb int" onclick="goto(4)">🔍 Parse AI</div><div class="fl">INT-5</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb int v39" onclick="goto(5)">⚙️ Guardrails</div><div class="fl">INT-6 ✦v3.9</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb core v39" onclick="goto(6)">🗺️ Context</div><div class="fl">CORE-7 ✦v3.9</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb route" onclick="goto(7)">🔀 Free?</div><div class="fl">ROUTE-8</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb route" onclick="goto(8)">🔀 Placeholder?</div><div class="fl">ROUTE-9</div></div>
+  <div class="fa">▶</div>
+  <div class="fn">
+    <div style="display:flex;gap:4px">
+      <div class="fb out" onclick="goto(9)" style="font-size:9px">💬 Free</div>
+      <div class="fb out" onclick="goto(10)" style="font-size:9px">📋 Ph.</div>
+    </div>
+    <div class="fl">OUT-10/11</div>
+  </div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb eng v39" onclick="goto(11)">🗃️ SQL</div><div class="fl">ENG-12 ✦v3.9</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb db" onclick="goto(12)">💾 DB</div><div class="fl">ENG-13</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb eng" onclick="goto(13)">📦 Payload</div><div class="fl">ENG-14</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb eng" onclick="goto(14)">📄 Pages</div><div class="fl">ENG-15</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb db" onclick="goto(15)">📡 API</div><div class="fl">ENG-16</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb eng v39" onclick="goto(16)">🔢 Normalize</div><div class="fl">ENG-17 ✦v3.9</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb eng" onclick="goto(17)">📝 Format</div><div class="fl">ENG-18</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb out" onclick="goto(18)">🐛 Debug</div><div class="fl">OUT-19</div></div>
+  <div class="fa">▶</div>
+  <div class="fn"><div class="fb out" onclick="goto(19)">✅ Respond</div><div class="fl">OUT-20</div></div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR NAV -->
+  <div class="sidebar">
+    <div class="nav-label">Input Layer</div>
+    <button class="nav-item active" onclick="goto(0)" id="nav-0"><span class="ni">🔗</span> Webhook</button>
+    <button class="nav-item" onclick="goto(1)" id="nav-1"><span class="ni">📥</span> Extract Message</button>
+
+    <div class="nav-label">AI Layer</div>
+    <button class="nav-item" onclick="goto(2)" id="nav-2"><span class="ni">🧠</span> Build Prompt</button>
+    <button class="nav-item" onclick="goto(3)" id="nav-3"><span class="ni">🤖</span> LLM Chain</button>
+    <button class="nav-item" onclick="goto(4)" id="nav-4"><span class="ni">🔍</span> Parse AI Output</button>
+    <button class="nav-item" onclick="goto(5)" id="nav-5"><span class="ni">⚙️</span> Guardrails ✦</button>
+    <button class="nav-item" onclick="goto(6)" id="nav-6"><span class="ni">🗺️</span> Unified Context ✦</button>
+
+    <div class="nav-label">Routing</div>
+    <button class="nav-item" onclick="goto(7)" id="nav-7"><span class="ni">🔀</span> Is Free Chat?</button>
+    <button class="nav-item" onclick="goto(8)" id="nav-8"><span class="ni">🔀</span> Is Placeholder?</button>
+    <button class="nav-item" onclick="goto(9)" id="nav-9"><span class="ni">💬</span> Free Format</button>
+    <button class="nav-item" onclick="goto(10)" id="nav-10"><span class="ni">📋</span> Placeholder Format</button>
+
+    <div class="nav-label">Engine Layer</div>
+    <button class="nav-item" onclick="goto(11)" id="nav-11"><span class="ni">🗃️</span> Build SQL ✦</button>
+    <button class="nav-item" onclick="goto(12)" id="nav-12"><span class="ni">💾</span> DB: Alarm Names</button>
+    <button class="nav-item" onclick="goto(13)" id="nav-13"><span class="ni">📦</span> Build API Payload</button>
+    <button class="nav-item" onclick="goto(14)" id="nav-14"><span class="ni">📄</span> Prepare Pages</button>
+    <button class="nav-item" onclick="goto(15)" id="nav-15"><span class="ni">📡</span> Call Alarm API</button>
+    <button class="nav-item" onclick="goto(16)" id="nav-16"><span class="ni">🔢</span> Normalize & Dedup ✦</button>
+    <button class="nav-item" onclick="goto(17)" id="nav-17"><span class="ni">📝</span> Format Reply</button>
+
+    <div class="nav-label">Output Layer</div>
+    <button class="nav-item" onclick="goto(18)" id="nav-18"><span class="ni">🐛</span> Build Debug</button>
+    <button class="nav-item" onclick="goto(19)" id="nav-19"><span class="ni">✅</span> Respond</button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content" id="mainContent">
+
+    <!-- NODE 0: Webhook -->
+    <div class="node-card" id="node-0">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(59,130,246,.07),transparent)">
+        <div class="node-icon" style="background:rgba(59,130,246,.12)">🔗</div>
+        <div class="node-meta"><h2>INT_Webhook</h2><div class="id">v38f-0001 · n8n-nodes-base.webhook</div></div>
+        <div class="node-type-badge" style="background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.25)">Input Gate</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">The <strong>entry point</strong> of the entire workflow. It listens on the URL path <code style="font-family:monospace;background:var(--panel-3);padding:2px 6px;border-radius:4px;font-size:11px">/webhook/chat-v38-foundation</code> for HTTP POST requests. When the frontend sends a message, this node wakes up the workflow and passes the raw request body downstream.</p>
+          <p class="body-text">Config: <strong>responseMode = responseNode</strong> — means it holds the HTTP connection open until the last node sends the reply (not immediate response). This is how the frontend gets the AI result back synchronously.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Input ↓ Output</div>
+          <div class="code"><span class="cm">// Frontend sends:</span>
+POST /webhook/chat-v38-foundation
+{ <span class="st">"message"</span>: <span class="st">"How many site down today?"</span>, <span class="st">"debug_mode"</span>: <span class="kw">true</span> }
+
+<span class="cm">// Node output (passes the raw HTTP body):</span>
+{ body: { message: <span class="st">"How many site down today?"</span>, debug_mode: <span class="kw">true</span> } }</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 1: Extract Message -->
+    <div class="node-card" id="node-1">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(59,130,246,.07),transparent)">
+        <div class="node-icon" style="background:rgba(59,130,246,.12)">📥</div>
+        <div class="node-meta"><h2>INT_Extract Message</h2><div class="id">v38f-0002 · n8n-nodes-base.set</div></div>
+        <div class="node-type-badge" style="background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.25)">Transform</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Extracts the 2 important fields from the raw webhook body and stores them with clean names for all downstream nodes.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Mapping</div>
+          <div class="code"><span class="kw">chatInput</span>  = $json.body.<span class="at">message</span>           <span class="cm">// The user's question</span>
+<span class="kw">debugMode</span>  = !!$json.body.<span class="at">debug_mode</span>      <span class="cm">// true/false (from frontend)</span></div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Examples</div>
+          <div class="examples-grid">
+            <div class="ex">
+              <div class="ex-q">👤 User sends <span>→ body.message</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">chatInput</span><span class="ex-val">"How many site down today?"</span></div>
+                <div class="ex-row"><span class="ex-key">debugMode</span><span class="ex-val yes">true</span></div>
+              </div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 User sends <span>(no debug)</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">chatInput</span><span class="ex-val">"Power alarms in Cairo"</span></div>
+                <div class="ex-row"><span class="ex-key">debugMode</span><span class="ex-val no">false</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 2: Build Prompt -->
+    <div class="node-card" id="node-2">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(139,92,246,.07),transparent)">
+        <div class="node-icon" style="background:rgba(139,92,246,.12)">🧠</div>
+        <div class="node-meta"><h2>LLM_Build Prompt</h2><div class="id">v38f-0003 · n8n-nodes-base.code</div></div>
+        <div class="node-type-badge" style="background:rgba(139,92,246,.1);color:#c4b5fd;border:1px solid rgba(139,92,246,.25)">AI Prep</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Builds the <strong>system prompt</strong> and <strong>user prompt</strong> that will be sent to the LLM. The system prompt is a detailed set of classification rules telling the AI how to interpret NOC questions. The user prompt is simply the user's question.</p>
+          <p class="body-text">Key rules it teaches the LLM (examples):</p>
+          <div class="cond if"><em>IF</em> "How many" + "site down" → intent = site_down_count, count_only = true</div>
+          <div class="cond if"><em>IF</em> "power alarms" → intent = power_alarm_summary, category = POWER</div>
+          <div class="cond if"><em>IF</em> "aging + down" → intent = down_aging_summary</div>
+          <div class="cond if"><em>IF</em> "VIP down" → intent = vip_down_sites, isvip = Yes</div>
+          <div class="cond if"><em>IF</em> region mentioned (Alex, Cairo...) → geo_type = region</div>
+          <div class="cond if"><em>IF</em> site code mentioned (ALX3480...) → geo_type = site</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Output</div>
+          <div class="code">{ chatInput, debugMode, <span class="kw">systemPrompt</span>: <span class="st">"You are a telecom NOC..."</span>, <span class="kw">userPrompt</span>: <span class="st">"User question: ..."</span> }</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 3: LLM Chain -->
+    <div class="node-card" id="node-3">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(139,92,246,.07),transparent)">
+        <div class="node-icon" style="background:rgba(139,92,246,.12)">🤖</div>
+        <div class="node-meta"><h2>Basic LLM Chain + INT_Ollama Chat Model</h2><div class="id">v38f-0004/0005 · lmChatOllama + chainLlm</div></div>
+        <div class="node-type-badge" style="background:rgba(139,92,246,.1);color:#c4b5fd;border:1px solid rgba(139,92,246,.25)">AI Inference</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Sends the system + user prompt to <strong>qwen2.5:14b</strong> model running locally on Ollama (temperature=0 for deterministic output). The model reads the question and returns a JSON object with its classification.</p>
+          <p class="body-text">⚠️ This step takes <strong>3–8 seconds</strong>. The model is told to return ONLY raw JSON (no markdown).</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Example LLM Output</div>
+          <div class="code"><span class="cm">// Input: "How many site down today in Alex?"</span>
+<span class="cm">// LLM returns (raw JSON string):</span>
+{
+  <span class="st">"mode"</span>: <span class="st">"incident"</span>,
+  <span class="st">"intent"</span>: <span class="st">"site_down_count"</span>,
+  <span class="st">"category"</span>: <span class="st">"SITE_DOWN"</span>,
+  <span class="st">"geo_type"</span>: <span class="st">"region"</span>,
+  <span class="st">"region_input"</span>: <span class="st">"Alex"</span>,
+  <span class="st">"count_only"</span>: <span class="kw">true</span>,
+  <span class="st">"sitedownflag"</span>: <span class="st">"Yes"</span>,
+  <span class="st">"user_question"</span>: <span class="st">"How many site down today in Alex?"</span>
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 4: Parse AI Output -->
+    <div class="node-card" id="node-4">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(59,130,246,.07),transparent)">
+        <div class="node-icon" style="background:rgba(59,130,246,.12)">🔍</div>
+        <div class="node-meta"><h2>INT_Parse AI Output</h2><div class="id">v38f-0006 · code</div></div>
+        <div class="node-type-badge" style="background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.25)">Parser</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Takes the <strong>raw text string</strong> from the LLM, parses it as JSON, and maps each field to a strongly-typed value. If parsing fails, all fields get safe empty defaults (never null).</p>
+          <p class="body-text">Strategy: <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">String(parsed.intent || '').trim()</code> — every field is safely coerced to string.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Condition: Parse failure guard</div>
+          <div class="cond if"><em>TRY</em> JSON.parse(chainOut)</div>
+          <div class="cond then"><em>→ SUCCESS:</em> use the parsed object</div>
+          <div class="cond else"><em>→ FAIL:</em> use empty {} — downstream guardrails handle the fallback</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Output fields</div>
+          <div class="code"><span class="cm">// All 20+ fields normalised, e.g.:</span>
+{
+  intent: <span class="st">"site_down_count"</span>,   <span class="cm">// string, always lowercase</span>
+  category: <span class="st">"SITE_DOWN"</span>,     <span class="cm">// string, always uppercase</span>
+  geo_type: <span class="st">"region"</span>,
+  region_input: <span class="st">"Alex"</span>,
+  count_only: <span class="kw">true</span>,            <span class="cm">// boolean, from parsed or string 'true'</span>
+  debugMode: <span class="kw">true</span>,            <span class="cm">// carried from original request</span>
+  _aiRaw: <span class="st">"..."</span>              <span class="cm">// raw LLM text for debug</span>
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 5: Guardrails -->
+    <div class="node-card" id="node-5">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(239,68,68,.08),transparent)">
+        <div class="node-icon" style="background:rgba(239,68,68,.12)">⚙️</div>
+        <div class="node-meta">
+          <h2>INT_Operational Guardrails <span class="v39-tag">v3.9 OWNER</span></h2>
+          <div class="id">v38f-0007 · code</div>
+        </div>
+        <div class="node-type-badge" style="background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25)">Safety Net</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">The <strong>single source of truth</strong> for intent+category correction. In v3.9, all the overriding logic lives HERE and nowhere else. It does 4 things:</p>
+          <p class="body-text">1. Keyword-based hard overrides (keyword matching beats LLM for known patterns)</p>
+          <p class="body-text">2. Fills missing intent when LLM returned empty/unknown</p>
+          <p class="body-text">3. Enforces intent→category consistency</p>
+          <p class="body-text">4. Sets request_profile (simple_query / site_incident_summary / free_chat / placeholder)</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Key Conditions (Priority Order)</div>
+          <div class="cond warn"><em>HARD OVERRIDE:</em> "power" + "aging" in question → always = power_aging_summary + POWER</div>
+          <div class="cond warn"><em>HARD OVERRIDE:</em> "power" + "parked" → always = power_parked_summary + POWER</div>
+          <div class="cond warn"><em>HARD OVERRIDE:</em> "warning"/"critical" + "power" → power_aging_summary</div>
+          <div style="height:8px"></div>
+          <div class="cond if"><em>IF</em> intent is empty/unknown AND question has incident keywords → derive intent from keywords</div>
+          <div class="cond then"><em>→</em> "vip" in question → vip_down_sites + isvip=Yes</div>
+          <div class="cond then"><em>→</em> "tx"/"transport"/"microwave" → tx_alarm_summary</div>
+          <div class="cond then"><em>→</em> site code + "analyze" → site_incident_summary</div>
+          <div class="cond then"><em>→</em> "howmany"/"count" → site_down_count + count_only=true</div>
+          <div style="height:8px"></div>
+          <div class="cond if"><em>IF</em> greeting (hi/thanks/مرحبا) → free_chat</div>
+          <div class="cond else"><em>ELSE</em> no incident keywords → placeholder</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Examples</div>
+          <div class="examples-grid">
+            <div class="ex">
+              <div class="ex-q">👤 "Power aging summary" <span>hard override wins</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">intent</span><span class="ex-val yes">power_aging_summary</span></div>
+                <div class="ex-row"><span class="ex-key">category</span><span class="ex-val yes">POWER</span></div>
+              </div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 "مرحبا" <span>greeting path</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">mode</span><span class="ex-val">free_chat</span></div>
+                <div class="ex-row"><span class="ex-key">intent</span><span class="ex-val">free_chat</span></div>
+              </div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 "Show VIP sites down" <span>keyword match</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">intent</span><span class="ex-val yes">vip_down_sites</span></div>
+                <div class="ex-row"><span class="ex-key">isvip</span><span class="ex-val yes">Yes</span></div>
+              </div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 "Traffic loss for ALX3480" <span>future feature</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">intent</span><span class="ex-val no">placeholder_request</span></div>
+                <div class="ex-row"><span class="ex-key">mode</span><span class="ex-val no">placeholder</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 6: Unified Context -->
+    <div class="node-card" id="node-6">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(20,184,166,.07),transparent)">
+        <div class="node-icon" style="background:rgba(20,184,166,.12)">🗺️</div>
+        <div class="node-meta">
+          <h2>CORE_Build Unified Context <span class="v39-tag">✦ Timezone Fixed</span></h2>
+          <div class="id">v38f-0008 · code</div>
+        </div>
+        <div class="node-type-badge" style="background:rgba(20,184,166,.1);color:#5eead4;border:1px solid rgba(20,184,166,.25)">Context Builder</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does (v3.9)</div>
+          <p class="body-text">Builds the <strong>canonical context object</strong> used by all downstream engine nodes. It does 3 things:</p>
+          <p class="body-text"><strong>1. Geography resolution</strong> — maps region names to API format (Alex → "Alex", delta → "East Delta|West Delta")</p>
+          <p class="body-text"><strong>2. Time range calculation</strong> — calculates today's start/end timestamps in Cairo time (fixed in v3.9)</p>
+          <p class="body-text"><strong>3. Context packaging</strong> — combines filters, geography, time_range into one structured object</p>
+          <p class="body-text">✅ <strong>v3.9 fix:</strong> Removed the duplicate guardrail overrides. Now trusts the guardrail output.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">v3.9 — Timezone Fix Detail</div>
+          <div class="code"><span class="cm">// OLD (unreliable — environment-dependent string format):</span>
+<span class="kw">const</span> nowStr = <span class="kw">new</span> <span class="fn">Date</span>().<span class="fn">toLocaleString</span>(<span class="st">'en-US'</span>, { timeZone: <span class="st">'Africa/Cairo'</span> });
+<span class="kw">const</span> cairoNow = <span class="kw">new</span> <span class="fn">Date</span>(nowStr); <span class="cm">// ← string parsing = NaN risk!</span>
+
+<span class="cm">// NEW (correct — uses structured parts, not string parsing):</span>
+<span class="kw">const</span> cairoParts = Object.<span class="fn">fromEntries</span>(
+  <span class="kw">new</span> Intl.<span class="fn">DateTimeFormat</span>(<span class="st">'en-CA'</span>, { timeZone: <span class="st">'Africa/Cairo'</span>, ... })
+  .<span class="fn">formatToParts</span>(realNow)
+  .<span class="fn">filter</span>(p => p.type !== <span class="st">'literal'</span>)
+  .<span class="fn">map</span>(p => [p.type, p.value])
+);
+<span class="cm">// → { year:'2026', month:'04', day:'11', hour:'23', minute:'30', second:'45' }</span>
+<span class="kw">const</span> cairoElapsedMs = (parseInt(cairoParts.hour)*<span class="nu">3600</span> + ...) * <span class="nu">1000</span>;
+<span class="kw">let</span> startUnix = realNow.<span class="fn">getTime</span>() - cairoElapsedMs; <span class="cm">// = Cairo midnight UTC</span></div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Geography Mapping Examples</div>
+          <div class="examples-grid">
+            <div class="ex">
+              <div class="ex-q">geo_type = region <span>"alex" input</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">location_resolved</span><span class="ex-val yes">Alex</span></div>
+              </div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">geo_type = region <span>"delta" input</span></div>
+              <div class="ex-body">
+                <div class="ex-row"><span class="ex-key">location_resolved</span><span class="ex-val yes">East Delta|West Delta</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 7 & 8: Routes -->
+    <div class="node-card" id="node-7">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(245,158,11,.07),transparent)">
+        <div class="node-icon" style="background:rgba(245,158,11,.12)">🔀</div>
+        <div class="node-meta"><h2>ROUTE_Is Free Chat + ROUTE_Is Placeholder</h2><div class="id">v38f-0009/0010 · IF nodes</div></div>
+        <div class="node-type-badge" style="background:rgba(245,158,11,.1);color:#fcd34d;border:1px solid rgba(245,158,11,.25)">Decision Gate</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What they do</div>
+          <p class="body-text">Two sequential IF nodes that decide which path to take. They prevent unnecessary DB/API calls for simple or unsupported requests.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">ROUTE_Is Free Chat — Conditions (OR)</div>
+          <div class="cond if"><em>IF</em> request_profile == "free_chat"</div>
+          <div class="cond if"><em>OR</em> mode == "free_chat"</div>
+          <div class="cond if"><em>OR</em> intent == "free_chat"</div>
+          <div class="cond then"><em>→ TRUE:</em> go to FREE_Format (instant reply, no API)</div>
+          <div class="cond else"><em>→ FALSE:</em> check ROUTE_Is Placeholder</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">ROUTE_Is Placeholder — Conditions (OR)</div>
+          <div class="cond if"><em>IF</em> request_profile == "placeholder"</div>
+          <div class="cond if"><em>OR</em> mode == "placeholder"</div>
+          <div class="cond if"><em>OR</em> intent == "placeholder_request"</div>
+          <div class="cond then"><em>→ TRUE:</em> go to PLACEHOLDER_Format (explain & ask for more info)</div>
+          <div class="cond else"><em>→ FALSE:</em> go to ENGINE_Build SQL (full incident path)</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Routing Summary</div>
+          <div class="examples-grid">
+            <div class="ex">
+              <div class="ex-q">👤 "Hi / Thanks / مرحبا"</div>
+              <div class="ex-body"><div class="ex-row"><span class="ex-key">path</span><span class="ex-val yes">→ FREE_Format</span></div></div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 "Traffic loss prediction"</div>
+              <div class="ex-body"><div class="ex-row"><span class="ex-key">path</span><span class="ex-val no">→ PLACEHOLDER_Format</span></div></div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 "How many site down today?"</div>
+              <div class="ex-body"><div class="ex-row"><span class="ex-key">path</span><span class="ex-val" style="color:#c4b5fd">→ ENGINE path ▶</span></div></div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">👤 "Analyze site ALX3480"</div>
+              <div class="ex-body"><div class="ex-row"><span class="ex-key">path</span><span class="ex-val" style="color:#c4b5fd">→ ENGINE path ▶</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 9/10: Free / Placeholder -->
+    <div class="node-card" id="node-9">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(34,197,94,.07),transparent)">
+        <div class="node-icon" style="background:rgba(34,197,94,.12)">💬</div>
+        <div class="node-meta"><h2>FREE_Format + PLACEHOLDER_Format</h2><div class="id">v38f-0011/0012 · code</div></div>
+        <div class="node-type-badge" style="background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.25)">Fast Reply</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What they do</div>
+          <p class="body-text"><strong>FREE_Format:</strong> Returns a friendly greeting/acknowledgment instantly. No DB/API involved. Detects "thanks" specifically for a warmer reply.</p>
+          <p class="body-text"><strong>PLACEHOLDER_Format:</strong> Returns a helpful message explaining what's needed (e.g. "Please provide a site code") or that the capability is coming soon. Includes the debug object.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">FREE_Format condition</div>
+          <div class="cond if"><em>IF</em> question matches /thanks|thank you|شكرا/i → "😊 You are welcome..."</div>
+          <div class="cond else"><em>ELSE</em> → "👋 Hello! I am the NOC AI Assistant..."</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Both output the standard contract</div>
+          <div class="code">{
+  version: <span class="st">"v1"</span>, response_type: <span class="st">"text"</span>,
+  intent: <span class="st">"free_chat"</span>, reply: <span class="st">"..."</span>,
+  summary: {}, charts: {}, tables: {},
+  debug: { ... }   <span class="cm">// full debug object</span>
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 10 (shared with 9 in display, jump to node-10 by id) -->
+    <div id="node-10" style="display:none"></div>
+
+    <!-- NODE 11: Build SQL -->
+    <div class="node-card" id="node-11">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(249,115,22,.07),transparent)">
+        <div class="node-icon" style="background:rgba(249,115,22,.12)">🗃️</div>
+        <div class="node-meta">
+          <h2>ENGINE_Build SQL <span class="v39-tag">✦ Simplified</span></h2>
+          <div class="id">v38f-0013 · code</div>
+        </div>
+        <div class="node-type-badge" style="background:rgba(249,115,22,.1);color:#fdba74;border:1px solid rgba(249,115,22,.25)">SQL Builder</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Builds a SQL query to fetch the <strong>alarm names</strong> associated with the current intent's category from the DB mapping table <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">ai_alarm_mappings</code>. These alarm names are then used to filter the API results.</p>
+          <p class="body-text">✅ <strong>v3.9 fix:</strong> Removed the redundant intent/category override block. Now trusts guardrails completely.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Conditions</div>
+          <div class="cond if"><em>IF</em> category is SITE_DOWN, POWER, TX, or CELL_DOWN → build SQL WHERE clause</div>
+          <div class="cond then"><em>→</em> SELECT alarm_name FROM ai_alarm_mappings WHERE category = '...'</div>
+          <div class="cond if"><em>IF</em> request_profile = site_incident_summary OR intent = site_active_alarms</div>
+          <div class="cond then"><em>→</em> SELECT '__DIRECT__' (bypass alarm mapping, query site directly)</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">SQL Examples</div>
+          <div class="examples-grid">
+            <div class="ex">
+              <div class="ex-q">intent = site_down_count <span>(SITE_DOWN)</span></div>
+              <div class="ex-body"><div class="code" style="font-size:10px;margin:0;padding:6px 10px">SELECT alarm_name FROM ai_alarm_mappings
+WHERE category = <span class="st">'SITE_DOWN'</span>
+ORDER BY alarm_name;</div></div>
+            </div>
+            <div class="ex">
+              <div class="ex-q">intent = site_active_alarms <span>(__DIRECT__)</span></div>
+              <div class="ex-body"><div class="code" style="font-size:10px;margin:0;padding:6px 10px">SELECT <span class="st">'__DIRECT__'</span> AS alarm_name</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 12: DB -->
+    <div class="node-card" id="node-12">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(6,182,212,.07),transparent)">
+        <div class="node-icon" style="background:rgba(6,182,212,.12)">💾</div>
+        <div class="node-meta"><h2>DB_Get Alarm Names</h2><div class="id">v38f-0014 · postgres</div></div>
+        <div class="node-type-badge" style="background:rgba(6,182,212,.1);color:#67e8f9;border:1px solid rgba(6,182,212,.25)">Database</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Executes the SQL query built by the previous node against the <strong>PostgreSQL database</strong>. Returns a list of alarm names that belong to the requested category. These alarm names are later used to filter API results to the right alarm types.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Output Example</div>
+          <div class="code"><span class="cm">// For SITE_DOWN category:</span>
+[
+  { alarm_name: <span class="st">"Site Down"</span> },
+  { alarm_name: <span class="st">"Site Unreachable"</span> },
+  { alarm_name: <span class="st">"Link Failure"</span> },
+  <span class="cm">// ...</span>
+]
+
+<span class="cm">// For __DIRECT__ mode:</span>
+[{ alarm_name: <span class="st">"__DIRECT__"</span> }]  <span class="cm">// signals: no alarm-name filter</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 13: Build API Payload -->
+    <div class="node-card" id="node-13">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(249,115,22,.07),transparent)">
+        <div class="node-icon" style="background:rgba(249,115,22,.12)">📦</div>
+        <div class="node-meta"><h2>ENGINE_Build API Payload</h2><div class="id">v38f-0015 · code</div></div>
+        <div class="node-type-badge" style="background:rgba(249,115,22,.1);color:#fdba74;border:1px solid rgba(249,115,22,.25)">Payload Builder</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Constructs the API payload (headers) to send to the alarm API. Only adds a field if it has a value (no empty filters sent to API). Special handling for aging/parked intents (no severity filter).</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Key Conditions</div>
+          <div class="cond if"><em>IF</em> isDirectMode → do NOT send alarmname filter (query everything for the site)</div>
+          <div class="cond if"><em>IF</em> geo_type = region → add location header</div>
+          <div class="cond if"><em>IF</em> geo_type = office → add city header</div>
+          <div class="cond if"><em>IF</em> isAgingIntent → never send standardalarmseverity (aging is time-based, not severity)</div>
+          <div class="cond else"><em>ELSE</em> → add severity if Critical/Major/Minor/Warning in question</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Example payload for "site down in Alex"</div>
+          <div class="code">{
+  start: <span class="nu">0</span>, limit: <span class="nu">1000</span>, type: <span class="nu">1</span>,
+  starttime: <span class="nu">1712793600000</span>,    <span class="cm">// today Cairo midnight UTC</span>
+  endtime: <span class="nu">1712879999999</span>,      <span class="cm">// today Cairo 23:59:59 UTC</span>
+  alarmname: <span class="st">"Site Down|Site Unreachable|Link Failure|..."</span>,
+  location: <span class="st">"Alex"</span>,             <span class="cm">// from geo resolution</span>
+  sitedownflag: <span class="st">"Yes"</span>
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 14: Prepare Pages -->
+    <div class="node-card" id="node-14">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(249,115,22,.07),transparent)">
+        <div class="node-icon" style="background:rgba(249,115,22,.12)">📄</div>
+        <div class="node-meta"><h2>ENGINE_Prepare Page Requests</h2><div class="id">v38f-0015b · code</div></div>
+        <div class="node-type-badge" style="background:rgba(249,115,22,.1);color:#fdba74;border:1px solid rgba(249,115,22,.25)">Pagination</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Splits the request into <strong>multiple paginated API calls</strong> by generating N copies of the payload with different <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">start</code> offsets. All pages fire in parallel to the API.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Page count logic</div>
+          <div class="cond if"><em>IF</em> isAging (aging/parked intent) → maxPages = <strong>25</strong> (large dataset expected)</div>
+          <div class="cond if"><em>ELSE IF</em> isBroad (site_down_count, power, tx...) → maxPages = <strong>10</strong></div>
+          <div class="cond else"><em>ELSE</em> (specific site query) → maxPages = <strong>1</strong></div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Output example (3 pages, limit=1000)</div>
+          <div class="code"><span class="cm">// 3 separate items sent to ENGINE_Call_Alarm_API in parallel:</span>
+[ { api_payload: { start: <span class="nu">0</span>,    limit: <span class="nu">1000</span> } },
+  { api_payload: { start: <span class="nu">1000</span>, limit: <span class="nu">1000</span> } },
+  { api_payload: { start: <span class="nu">2000</span>, limit: <span class="nu">1000</span> } } ]</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 15: Call API -->
+    <div class="node-card" id="node-15">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(6,182,212,.07),transparent)">
+        <div class="node-icon" style="background:rgba(6,182,212,.12)">📡</div>
+        <div class="node-meta"><h2>ENGINE_Call Alarm API</h2><div class="id">v38f-0016 · httpRequest</div></div>
+        <div class="node-type-badge" style="background:rgba(6,182,212,.1);color:#67e8f9;border:1px solid rgba(6,182,212,.25)">HTTP Client</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Makes the actual HTTP GET request to the alarm API (ADC integration API). All filters are sent as <strong>request headers</strong>. Uses Basic Auth and allows self-signed SSL certs (internal server).</p>
+          <p class="body-text">⚠️ All pages from the previous node are called in parallel, each with a different <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">start</code> offset.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">API Endpoint</div>
+          <div class="code">GET https://10.80.174.137:31943/adc-intg/api/rest/v1/
+        custom_api/query_alarms/query_alarm
+Headers: start, limit, type, starttime, endtime,
+         alarmname, location, city, sitecode,
+         vendor, networktype, isvip, sitedownflag, ...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 16: Normalize -->
+    <div class="node-card" id="node-16">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(239,68,68,.08),transparent)">
+        <div class="node-icon" style="background:rgba(239,68,68,.12)">🔢</div>
+        <div class="node-meta">
+          <h2>ENGINE_Normalize And Dedup <span class="v39-tag">✦ Error Tracking</span></h2>
+          <div class="id">v38f-0017 · code</div>
+        </div>
+        <div class="node-type-badge" style="background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25)">Data Engine</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does (largest node)</div>
+          <p class="body-text">Collects all paginated API responses and processes them into clean, analysis-ready data. Does 6 things:</p>
+          <p class="body-text"><strong>1. Page collection</strong> — merges all page responses into one allRecords array</p>
+          <p class="body-text"><strong>2. Failed page detection (v3.9 new)</strong> — tracks which pages returned nothing</p>
+          <p class="body-text"><strong>3. Post-filtering</strong> — applies vendor/tech/sitecode filters that couldn't go in API headers</p>
+          <p class="body-text"><strong>4. Deduplication</strong> — gets latest alarm per site (one row per site, not 50 alarms)</p>
+          <p class="body-text"><strong>5. Breakdowns</strong> — tallies by office, region, technology, alarm name</p>
+          <p class="body-text"><strong>6. Aging analysis</strong> — computes how long sites have been down (&lt;2h, 2-4h, 4-12h, &gt;12h)</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">v3.9 — Pagination Error Tracking</div>
+          <div class="code"><span class="cm">// NEW in v3.9: detect pages that returned no data</span>
+<span class="kw">const</span> failedPageIndices = pageInputs
+  .<span class="fn">map</span>((item, i) => ({ i, raw: item.json || {} }))
+  .<span class="fn">filter</span>(({ raw }) => !raw.result && !raw.data && !raw.records ...)
+  .<span class="fn">map</span>(({ i }) => i);
+<span class="cm">// e.g. [2, 7] = pages 2 and 7 failed</span>
+
+<span class="kw">const</span> paginationWarning = failedPageIndices.length > <span class="nu">0</span>
+  ? <span class="st">'Data may be incomplete: N pages failed.'</span> : <span class="kw">null</span>;</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Key Dedup Logic</div>
+          <div class="cond if"><em>getLatestPerSite(rows)</em> → for each unique sitecode, keep the record with the most recent timestamp</div>
+          <div class="cond then"><em>Result:</em> physical_site_count = unique sites affected (not alarm count)</div>
+          <div class="cond if"><em>filterRowsByAge(rows, 24)</em> → keep only rows older than 24h → parked sites</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Output Example</div>
+          <div class="code">{
+  physical_site_count: <span class="nu">47</span>,    <span class="cm">// unique sites down</span>
+  logical_count: <span class="nu">183</span>,          <span class="cm">// raw row count (multiple alarms per site)</span>
+  breakdowns: {
+    by_office: [{ name: <span class="st">'ALEX1'</span>, count: <span class="nu">8</span> }, ...],
+    by_region: [{ name: <span class="st">'Alex'</span>, count: <span class="nu">12</span> }, ...]
+  },
+  aging_analysis: {
+    down: { '<2h': <span class="nu">5</span>, '2_4h': <span class="nu">12</span>, '4_12h': <span class="nu">18</span>, '>12h': <span class="nu">12</span> }
+  },
+  pagination: {
+    failed_pages: [],       <span class="cm">// v3.9 new</span>
+    data_complete: <span class="kw">true</span>     <span class="cm">// v3.9 new</span>
+  }
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 17: Format Reply -->
+    <div class="node-card" id="node-17">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(249,115,22,.07),transparent)">
+        <div class="node-icon" style="background:rgba(249,115,22,.12)">📝</div>
+        <div class="node-meta"><h2>ENGINE_Format Reply</h2><div class="id">v38f-0018 · code</div></div>
+        <div class="node-type-badge" style="background:rgba(249,115,22,.1);color:#fdba74;border:1px solid rgba(249,115,22,.25)">Formatter</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">The <strong>biggest switch statement</strong> in the flow. Based on the intent, it builds the human-readable <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">reply</code> text, <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">summary</code> object, <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">charts</code>, and <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">tables</code> for the frontend dashboard.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Intent → Format mapping</div>
+          <div class="cond if"><em>site_down_count</em> → KPI summary + office/region/tech charts + top sites table</div>
+          <div class="cond if"><em>power_alarm_summary</em> → power impact metrics + alarm type table</div>
+          <div class="cond if"><em>down_aging_summary</em> → aging distribution chart (&lt;2h, 2-4h, 4-12h, &gt;12h)</div>
+          <div class="cond if"><em>vip_down_sites</em> → VIP-only list with office breakdown</div>
+          <div class="cond if"><em>site_incident_summary</em> → 7-section full incident report for one site</div>
+          <div class="cond if"><em>site_active_alarms</em> → alarm list table for one site</div>
+          <div class="cond else"><em>down/power_parked</em> → parked (&gt;24h) breakdown with office chart</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 18: Debug -->
+    <div class="node-card" id="node-18">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(34,197,94,.07),transparent)">
+        <div class="node-icon" style="background:rgba(34,197,94,.12)">🐛</div>
+        <div class="node-meta"><h2>OUT_Build Debug Response</h2><div class="id">v38f-0019 · code</div></div>
+        <div class="node-type-badge" style="background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.25)">Assembler</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Collects data from <strong>all previous nodes</strong> (using <code style="font-family:monospace;font-size:11px;background:var(--panel-3);padding:2px 5px;border-radius:4px">$items('nodeName')</code>) and builds the final response package including a comprehensive debug object with 12 numbered debug sections.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Debug sections (always included in response)</div>
+          <div class="code"><span class="cm">// 12 debug sections available in the response:</span>
+'1_user_request':    { question, debug_mode, timestamp }
+'2_ai_raw_output':   { raw LLM text }
+'3_ai_interpretation': { mode, intent, category, geo_type }
+'4_geography':       { region_input, location_resolved }
+'5_sql_mapping':     { sql_executed, alarm_names }
+'6_time_range':      { start_local, end_local }
+'7_api_payload':     { the exact headers sent to the API }
+'8_api_response':    { total, records_returned, pagination }
+'9_post_filter':     { logical_count, physical_site_count }
+'10_count_logic':    { final_reported }
+'11_final_reply':    { preview of reply }
+'12_v38_foundation': { request_profile, aging_analysis, ... }</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODE 19: Respond -->
+    <div class="node-card" id="node-19">
+      <div class="node-header" style="background:linear-gradient(90deg,rgba(34,197,94,.07),transparent)">
+        <div class="node-icon" style="background:rgba(34,197,94,.12)">✅</div>
+        <div class="node-meta"><h2>OUT_Respond to Webhook</h2><div class="id">v38f-0020 · respondToWebhook</div></div>
+        <div class="node-type-badge" style="background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.25)">Response Gate</div>
+      </div>
+      <div class="node-body">
+        <div class="ns">
+          <div class="ns-title">What it does</div>
+          <p class="body-text">Closes the HTTP connection opened by the Webhook node and sends the final JSON response to the frontend. Adds CORS headers so the browser can receive the response from any origin.</p>
+        </div>
+        <div class="ns">
+          <div class="ns-title">Final Response Schema</div>
+          <div class="code">{
+  version: <span class="st">"v1"</span>,
+  response_type: <span class="st">"mixed"</span>,          <span class="cm">// or "text" / "dashboard"</span>
+  intent: <span class="st">"site_down_count"</span>,
+  category: <span class="st">"SITE_DOWN"</span>,
+  reply: <span class="st">"═══ Site Down Summary ═══\n..."</span>,
+  total: <span class="nu">47</span>,
+  summary: { total_down_sites: <span class="nu">47</span>, vip_sites: <span class="nu">3</span> },
+  charts:  { by_technology: { ... }, by_region: { ... } },
+  tables:  { by_office: { ... }, top_sites: { ... } },
+  meta:    { time_range: { ... }, generated_at: <span class="st">"..."</span> },
+  debug:   { <span class="cm">/* 12 sections */</span> },
+  dashboard_data: <span class="kw">null</span> <span class="cm">// or populated if output_view=dashboard</span>
+}</div>
+        </div>
+        <div class="ns">
+          <div class="ns-title">CORS Headers</div>
+          <div class="code">Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main-content -->
+</div><!-- end layout -->
+
+<footer>
+  NOC AI V3.9 Node Walkthrough · Phase 1 Hardened ·
+  Nodes marked <strong style="color:#fca5a5">✦v3.9</strong> have been modified in this version
+</footer>
+
+<script>
+  const nodes = document.querySelectorAll('.node-card');
+  function goto(i) {
+    // Update nav
+    document.querySelectorAll('.nav-item').forEach((n,j)=>{
+      n.classList.toggle('active', j===i);
+    });
+    // Scroll main to node
+    const el = document.getElementById('node-'+i);
+    if (el) el.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  // Track scroll to update nav
+  const content = document.getElementById('mainContent');
+  content.addEventListener('scroll', ()=>{
+    let active = 0;
+    nodes.forEach((n,i)=>{
+      const top = n.getBoundingClientRect().top;
+      if (top < 200) active = i;
+    });
+    const nodeId = nodes[active]?.id?.replace('node-','');
+    document.querySelectorAll('.nav-item').forEach((n,j)=>{
+      n.classList.toggle('active', j==nodeId);
+    });
+  });
+</script>
+</body>
+</html>

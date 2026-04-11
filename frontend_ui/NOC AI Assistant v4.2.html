@@ -92,8 +92,14 @@
         .dbg-toggle { align-self:flex-start; background:transparent; border:1px solid #334155; color:#64748b; font-size:11px; font-family:'Inter',sans-serif; padding:3px 10px; border-radius:6px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:4px; }
         .dbg-toggle:hover { background:#1e293b; color:#94a3b8; border-color:#475569; }
         .dbg-toggle.on { background:#1e293b; color:#38bdf8; border-color:#0ea5e9; }
-        .dbg-panel { background:var(--debug-bg); color:var(--debug-text); font-family:'Courier New',monospace; font-size:11px; line-height:1.65; border-radius:10px; overflow:hidden; border:1px solid #1e293b; animation:fi .2s ease; }
+        .dbg-panel { background:var(--debug-bg); color:var(--debug-text); font-family:'Courier New',monospace; font-size:11px; line-height:1.65; border-radius:10px; overflow:hidden; border:1px solid #1e293b; animation:fi .2s ease; position:relative; }
         .dbg-panel.hide { display:none; }
+        .dbg-panel-toolbar { display:flex; align-items:center; justify-content:flex-end; padding:6px 10px 0; gap:6px; }
+        .dbg-copy-btn { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.25); color:#38bdf8; font-size:10px; font-weight:700; font-family:'Inter',sans-serif; border-radius:6px; cursor:pointer; transition:all .2s; letter-spacing:.3px; }
+        .dbg-copy-btn:hover { background:rgba(56,189,248,.2); border-color:#38bdf8; }
+        .dbg-copy-btn.copied { background:rgba(22,163,74,.15); border-color:#16a34a; color:#4ade80; }
+        @keyframes copyPop { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
+        .dbg-copy-btn.copied { animation:copyPop .25s ease; }
         .dbg-section { padding:8px 14px; border-bottom:1px solid rgba(255,255,255,.05); }
         .dbg-section:last-child { border-bottom:none; }
         .dbg-section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#38bdf8; margin-bottom:4px; display:flex; align-items:center; gap:5px; }
@@ -296,7 +302,15 @@
 </div>
 
 <script>
-const WH = 'http://10.80.174.145:5678/webhook/chat-v35';
+// n8n Webhook base URL — edit defaults here or override via query string:
+//   ?n8nHost=10.80.174.145&n8nPort=5678&webhookPath=chat-v37-standalone
+//   ?webhookPath=chat-v37  ← use while only V3.6 Optimized is active
+const _n8nQs = new URLSearchParams(window.location.search || '');
+const N8N_WEBHOOK_PATH = _n8nQs.get('webhookPath') || 'chat-v37-standalone';
+const N8N_HOST = _n8nQs.get('n8nHost') || '10.80.174.145';
+const N8N_PORT = _n8nQs.get('n8nPort') || '5678';
+const N8N_USE_HTTPS = _n8nQs.get('n8nHttps') === '1';
+const WH = (N8N_USE_HTTPS ? 'https' : 'http') + '://' + N8N_HOST + ':' + N8N_PORT + '/webhook/' + N8N_WEBHOOK_PATH;
 let sidebarOpen = true;
 let history = [];
 let msgCounter = 0;
@@ -323,7 +337,23 @@ const DBG_SECTIONS = [
     ['9_post_filter_dedup', '🔍', 'Post-Filter & Dedup'],
     ['10_count_logic',      '🔢', 'Count Logic'],
     ['11_final_reply',      '💬', 'Final Reply Preview'],
+    ['12_composite',        '🧩', 'Composite / Incident Context'],
 ];
+
+function formatWebhookError(e) {
+    const msg = e && e.message ? e.message : String(e);
+    const head = '⚠️ Error: ' + msg;
+    const target = '\nTarget: ' + WH;
+    if (msg === 'Failed to fetch' || (e && e.name === 'TypeError')) {
+        return head + target + '\n\nCould not reach n8n (network, firewall, or browser security). Check:\n'
+            + '• From this PC, open or POST to the URL above (curl, Postman, or browser).\n'
+            + '• Workflow is Active and the Webhook node path is exactly /webhook/' + N8N_WEBHOOK_PATH + '\n'
+            + '• Port ' + N8N_PORT + ' on ' + N8N_HOST + ' is reachable; firewalls/VPN allow it.\n'
+            + '• If this dashboard is HTTPS but n8n is HTTP, the browser may block it (mixed content).\n'
+            + '• Try V3.6 path: add to URL &webhookPath=chat-v37 — or set n8nHost if n8n runs elsewhere.';
+    }
+    return head + target + '\nIf HTTP error: confirm workflow Active and Respond to Webhook runs.';
+}
 
 function toggleSidebar() {
     sidebarOpen = !sidebarOpen;
@@ -354,6 +384,18 @@ function buildDebugPanel(debug, panelId) {
     const wrap = document.createElement('div');
     wrap.className = 'dbg-panel hide';
     wrap.id = panelId;
+
+    // ── Toolbar with Copy button ──
+    const toolbar = document.createElement('div');
+    toolbar.className = 'dbg-panel-toolbar';
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'dbg-copy-btn';
+    copyBtn.innerHTML = '⧉ Copy';
+    copyBtn.title = 'Copy full debug JSON to clipboard';
+    copyBtn.onclick = () => copyDebug(debug, copyBtn);
+    toolbar.appendChild(copyBtn);
+    wrap.appendChild(toolbar);
+
     if (!debug || typeof debug !== 'object') {
         const s = document.createElement('div');
         s.className = 'dbg-section';
@@ -376,6 +418,28 @@ function buildDebugPanel(debug, panelId) {
         wrap.appendChild(sec);
     }
     return wrap;
+}
+
+function copyDebug(debug, btn) {
+    const text = JSON.stringify(debug, null, 2);
+    // Always store in global for fallback access
+    window._lastDebug = text;
+    // Use textarea method — works reliably on file:// and http://
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;boxShadow:none;background:transparent;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        document.execCommand('copy');
+        btn.innerHTML = '✔ Copied!';
+        btn.classList.add('copied');
+    } catch(e) {
+        btn.innerHTML = '✖ Failed';
+    }
+    document.body.removeChild(ta);
+    setTimeout(() => { btn.innerHTML = '⧉ Copy'; btn.classList.remove('copied'); }, 2000);
 }
 
 function addMessage(text, sender, debug, elapsed_ms) {
@@ -548,8 +612,18 @@ async function doSend(text, skipIntercept = false, skipUserMsg = false) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text, debug_mode: debugModeOn })
         });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const data = await resp.json();
+        const rawText = await resp.text();
+        if (!resp.ok) {
+            let detail = 'HTTP ' + resp.status;
+            try {
+                const errJ = JSON.parse(rawText);
+                if (errJ.message) detail = errJ.message;
+                if (errJ.hint) detail += '\n\n' + errJ.hint;
+            } catch (_) { /* not JSON */ }
+            throw new Error(detail);
+        }
+        if (!rawText || rawText.trim() === '') throw new Error('Empty response from server\nCheck that workflow is Active & reached Respond to Webhook node');
+        const data = JSON.parse(rawText);
         const elapsed_ms = Date.now() - t0;
         removeTyping();
         const reply = data.reply || data.answer || 'No response';
@@ -558,7 +632,7 @@ async function doSend(text, skipIntercept = false, skipUserMsg = false) {
         trackHistory(text, reply, debug, elapsed_ms);
     } catch(e) {
         removeTyping();
-        addMessage('⚠️ Error: ' + e.message + '\nMake sure n8n V3.5 workflow is Active on path /webhook/chat-v35', 'bot');
+        addMessage(formatWebhookError(e), 'bot');
     }
     isSending = false;
     document.getElementById('sendBtn').disabled = false;

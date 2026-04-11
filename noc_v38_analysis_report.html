@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOC AI V3.8 — Workflow Analysis & Improvement Roadmap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:      #080c14;
+      --panel:   #111827;
+      --panel-2: #161e30;
+      --panel-3: #1c2540;
+      --border:  #1e2d4a;
+      --text:    #eef2ff;
+      --muted:   #7b8ab0;
+      --red:     #ef4444;
+      --orange:  #f97316;
+      --yellow:  #f59e0b;
+      --green:   #22c55e;
+      --blue:    #3b82f6;
+      --purple:  #8b5cf6;
+      --cyan:    #06b6d4;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .hero {
+      background:
+        radial-gradient(ellipse 80% 50% at top left, rgba(239,68,68,.15), transparent 55%),
+        radial-gradient(ellipse 60% 40% at bottom right, rgba(59,130,246,.10), transparent 55%),
+        linear-gradient(180deg, #0a101e 0%, #080c14 100%);
+      padding: 70px 40px 60px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e2d4a' fill-opacity='0.4'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41-1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: .4;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 14px; border-radius: 999px;
+      border: 1px solid rgba(239,68,68,.3); background: rgba(239,68,68,.08);
+      font-size: 11px; font-weight: 700; color: #fca5a5;
+      text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(26px,4vw,46px); font-weight: 900;
+      letter-spacing: -.5px; line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .hero h1 .accent { color: var(--red); }
+    .hero p {
+      color: var(--muted); font-size: 15px;
+      max-width: 560px; margin: 0 auto 30px;
+    }
+    .hero-meta {
+      display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;
+    }
+    .meta-chip {
+      padding: 6px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--panel);
+      font-size: 12px; font-weight: 600; color: var(--muted);
+    }
+    .meta-chip b { color: var(--text); }
+
+    /* ── Layout ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 48px 28px; }
+
+    /* ── Flow Diagram ── */
+    .flow-section {
+      background: var(--panel);
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 28px; margin-bottom: 48px; overflow: hidden;
+    }
+    .section-title {
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .7px; color: var(--muted); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .flow-scroll { overflow-x: auto; padding-bottom: 8px; }
+    .flow {
+      display: flex; align-items: center;
+      gap: 0; min-width: max-content;
+    }
+    .fnode {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .fbox {
+      padding: 8px 13px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--panel-2);
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+      text-align: center;
+    }
+    .fbox.llm  { border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.08); color: #c4b5fd; }
+    .fbox.db   { border-color: rgba(6,182,212,.4);  background: rgba(6,182,212,.08);  color: #67e8f9; }
+    .fbox.api  { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.08); color: #fcd34d; }
+    .fbox.out  { border-color: rgba(34,197,94,.4);  background: rgba(34,197,94,.08);  color: #86efac; }
+    .fbox.route{ border-color: rgba(239,68,68,.4);  background: rgba(239,68,68,.08);  color: #fca5a5; border-style: dashed; }
+    .farrow {
+      width: 28px; height: 2px; background: var(--border); position: relative; flex-shrink: 0;
+    }
+    .farrow::after {
+      content: '▶'; position: absolute; right: -7px; top: -7px;
+      color: var(--muted); font-size: 9px;
+    }
+    .flabel { font-size: 10px; color: var(--muted); font-weight: 600; }
+
+    /* ── Phase Cards ── */
+    .phases { display: grid; gap: 28px; }
+    .phase-card {
+      border-radius: 16px; border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .phase-hdr {
+      padding: 20px 24px; display: flex; align-items: center; gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .phase-num {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; flex-shrink: 0;
+    }
+    .phase-info h2 { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+    .phase-info p  { font-size: 12px; color: var(--muted); }
+    .phase-tag {
+      margin-left: auto; padding: 4px 12px; border-radius: 999px;
+      font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+    }
+
+    /* Phase colors */
+    .phase-1 .phase-hdr { background: linear-gradient(90deg, rgba(239,68,68,.07), transparent); }
+    .phase-1 .phase-num { background: rgba(239,68,68,.15); color: var(--red); }
+    .phase-1 .phase-tag { background: rgba(239,68,68,.12); color: #fca5a5; border: 1px solid rgba(239,68,68,.25); }
+    .phase-1 .item-marker { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.25); color: #fca5a5; }
+    .phase-1 .code-block { border-color: rgba(239,68,68,.2); }
+
+    .phase-2 .phase-hdr { background: linear-gradient(90deg, rgba(245,158,11,.07), transparent); }
+    .phase-2 .phase-num { background: rgba(245,158,11,.15); color: var(--yellow); }
+    .phase-2 .phase-tag { background: rgba(245,158,11,.12); color: #fcd34d; border: 1px solid rgba(245,158,11,.25); }
+    .phase-2 .item-marker { background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.25); color: #fcd34d; }
+    .phase-2 .code-block { border-color: rgba(245,158,11,.2); }
+
+    .phase-3 .phase-hdr { background: linear-gradient(90deg, rgba(34,197,94,.07), transparent); }
+    .phase-3 .phase-num { background: rgba(34,197,94,.15); color: var(--green); }
+    .phase-3 .phase-tag { background: rgba(34,197,94,.12); color: #86efac; border: 1px solid rgba(34,197,94,.25); }
+    .phase-3 .item-marker { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.25); color: #86efac; }
+    .phase-3 .code-block { border-color: rgba(34,197,94,.2); }
+
+    .phase-body { padding: 20px 24px; background: var(--panel); display: grid; gap: 20px; }
+
+    /* Item */
+    .item {
+      border: 1px solid var(--border); border-radius: 12px;
+      background: var(--panel-2); overflow: hidden;
+    }
+    .item-hdr {
+      padding: 13px 16px; display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .item-marker {
+      font-size: 9px; font-weight: 800; padding: 3px 8px;
+      border-radius: 6px; border: 1px solid; white-space: nowrap;
+    }
+    .item-hdr h3 { font-size: 14px; font-weight: 700; }
+    .item-body { padding: 14px 16px; display: grid; gap: 10px; }
+
+    .problem {
+      padding: 10px 14px; border-radius: 8px;
+      background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.15);
+      font-size: 12.5px; line-height: 1.65;
+    }
+    .problem strong { color: #fca5a5; }
+
+    .solution {
+      padding: 10px 14px; border-radius: 8px;
+      background: rgba(34,197,94,.05); border: 1px solid rgba(34,197,94,.15);
+      font-size: 12.5px; line-height: 1.65;
+    }
+    .solution strong { color: #86efac; }
+
+    .label-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .4px; color: var(--muted); margin-bottom: 4px;
+    }
+
+    .code-block {
+      background: #060a12; border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+      font: 12px/1.7 'JetBrains Mono', ui-monospace, monospace;
+      color: #a5f3fc; overflow-x: auto;
+    }
+    .code-block .cm { color: #5c6f8a; }
+    .code-block .kw { color: #fbbf24; }
+    .code-block .st { color: #86efac; }
+    .code-block .nu { color: #c4b5fd; }
+    .code-block .fn { color: #60a5fa; }
+
+    /* ── Summary Table ── */
+    .summary-section {
+      margin-top: 48px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden;
+    }
+    .summary-hdr {
+      padding: 18px 24px; border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(59,130,246,.06), transparent);
+    }
+    .summary-hdr h2 { font-size: 15px; font-weight: 800; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 16px; text-align: left; font-size: 12.5px; }
+    th {
+      background: var(--panel-2); font-size: 10px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .4px; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    tr { border-bottom: 1px solid var(--border); }
+    tr:last-child { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.015); }
+    .pri { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+    .pri.p1 { background: rgba(239,68,68,.12); color: #fca5a5; }
+    .pri.p2 { background: rgba(245,158,11,.12); color: #fcd34d; }
+    .pri.p3 { background: rgba(34,197,94,.12); color: #86efac; }
+    .eff {
+      display: flex; gap: 4px;
+    }
+    .dot {
+      width: 9px; height: 9px; border-radius: 50%; background: var(--border);
+    }
+    .dot.on { background: #3b82f6; }
+
+    /* ── Critical Banner ── */
+    .tip-box {
+      margin-top: 32px; padding: 16px 20px;
+      background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.25);
+      border-radius: 12px; font-size: 13px; line-height: 1.65;
+    }
+    .tip-box .tip-title {
+      font-weight: 800; color: #93c5fd; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 7px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 60px; padding: 28px;
+      border-top: 1px solid var(--border); text-align: center;
+      font-size: 11px; color: var(--muted);
+    }
+
+    @media (max-width: 640px) {
+      .hero { padding: 40px 20px; }
+      .container { padding: 28px 16px; }
+      .phase-hdr { flex-wrap: wrap; }
+      .phase-tag { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<div class="hero">
+  <div class="hero-badge">🔬 Workflow Analysis Report</div>
+  <h1>NOC AI SQL Agent <span class="accent">V3.8</span><br>Improvement Roadmap</h1>
+  <p>Deep analysis of the n8n workflow with identified issues, priority fixes, and a 3-phase improvement plan.</p>
+  <div class="hero-meta">
+    <div class="meta-chip">📁 <b>20 Nodes</b></div>
+    <div class="meta-chip">⚠️ <b>4 Critical Issues</b></div>
+    <div class="meta-chip">💡 <b>9 Improvements</b></div>
+    <div class="meta-chip">🤖 <b>qwen2.5:14b / Ollama</b></div>
+    <div class="meta-chip">🕐 <b>April 2026</b></div>
+  </div>
+</div>
+
+<!-- ===== MAIN ===== -->
+<div class="container">
+
+  <!-- Flow Diagram -->
+  <div class="flow-section">
+    <div class="section-title">Current Workflow Architecture</div>
+    <div class="flow-scroll">
+      <div class="flow">
+        <div class="fnode"><div class="fbox">🔗 Webhook</div><div class="flabel">INT</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox">📥 Extract</div><div class="flabel">INT</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox llm">🤖 LLM Chain<br><small>Qwen 14b</small></div><div class="flabel">3-8s ⚠️</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox">🔍 Parse AI</div><div class="flabel">INT</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox route">⚙️ Guardrails<br><small>×3 duplicate</small></div><div class="flabel">⚠️ DRY</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox">🗺️ Context</div><div class="flabel">CORE</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox route">🔀 Route<br><small>Free? Placeholder?</small></div><div class="flabel">ROUTE</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox db">🗃️ DB SQL</div><div class="flabel">DB</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox api">📡 API<br><small>×1–25 pages ⚠️</small></div><div class="flabel">ENGINE</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox">🔢 Normalize</div><div class="flabel">ENGINE</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox">📝 Format</div><div class="flabel">ENGINE</div></div>
+        <div class="farrow"></div>
+        <div class="fnode"><div class="fbox out">✅ Respond</div><div class="flabel">OUT</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASES -->
+  <div class="phases">
+
+    <!-- ── PHASE 1 ── -->
+    <div class="phase-card phase-1">
+      <div class="phase-hdr">
+        <div class="phase-num">1</div>
+        <div class="phase-info">
+          <h2>🛡️ Stability & Reliability</h2>
+          <p>Fix critical bugs that could cause wrong results or silent failures in production</p>
+        </div>
+        <div class="phase-tag">DO FIRST</div>
+      </div>
+      <div class="phase-body">
+
+        <!-- 1.1 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🔴 CRITICAL</span>
+            <h3>1.1 — Centralize Guardrail Logic (DRY Fix)</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">🐛 Problem</div>
+              <div class="problem">
+                The same override rules for <strong>power+aging</strong>, <strong>warning/critical</strong>, and <strong>intent→category mapping</strong> are copied in 3 different nodes:
+                <code style="font-family:monospace;font-size:11px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px">INT_Operational Guardrails</code>,
+                <code style="font-family:monospace;font-size:11px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px">CORE_Build Unified Context</code>,
+                <code style="font-family:monospace;font-size:11px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px">ENGINE_Build SQL</code>.
+                A rule changed in one place but forgotten in another = <strong>silent production bugs</strong>.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">✅ Solution</div>
+              <div class="solution">
+                All intent+category correction logic lives <strong>only in <code style="font-family:monospace;font-size:11px">INT_Operational Guardrails</code></strong>.
+                The following nodes trust the output and <strong>never override again</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1.2 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🔴 CRITICAL</span>
+            <h3>1.2 — Pagination Error Handling</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">🐛 Problem</div>
+              <div class="problem">
+                <strong>25 parallel API calls</strong> are fired for aging queries. If any single page fails (timeout, 500 error), the result is silently incomplete — the workflow never knows records are missing.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">✅ Solution</div>
+              <div class="solution">
+                Enable <strong>continueOnFail: true</strong> on the API node + track failed pages in <code style="font-family:monospace;font-size:11px">ENGINE_Normalize</code>. Better: use sequential pagination — fetch page 1 → read total → calculate pages needed → fetch only what's needed.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">💡 Code Idea</div>
+              <div class="code-block"><span class="cm">// In ENGINE_Normalize: detect incomplete pagination</span>
+<span class="kw">const</span> failedPages = pageInputs.<span class="fn">filter</span>(i => !i.json?.result);
+<span class="kw">if</span> (failedPages.length > <span class="nu">0</span>) {
+  <span class="cm">// Include warning in reply</span>
+  warning = <span class="st">`⚠️ ${failedPages.length} pages failed — data may be incomplete`</span>;
+}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1.3 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🟠 HIGH</span>
+            <h3>1.3 — Reliable Timezone Handling</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">🐛 Problem</div>
+              <div class="problem">
+                Using <strong>toLocaleString() → new Date(string)</strong> to calculate Cairo timezone offset is unreliable. Different environments produce different string formats, causing <code style="font-family:monospace;font-size:11px">NaN</code> timestamps that corrupt the API time range.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">✅ Solution</div>
+              <div class="solution">
+                Use <strong>Intl.DateTimeFormat.formatToParts()</strong> which produces a structured object — never a locale-dependent string.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">💡 Code</div>
+              <div class="code-block"><span class="kw">function</span> <span class="fn">getCairoMidnight</span>() {
+  <span class="kw">const</span> p = <span class="kw">new</span> Intl.<span class="fn">DateTimeFormat</span>(<span class="st">'en-CA'</span>, {
+    timeZone: <span class="st">'Africa/Cairo'</span>,
+    year:<span class="st">'numeric'</span>, month:<span class="st">'2-digit'</span>, day:<span class="st">'2-digit'</span>
+  }).<span class="fn">formatToParts</span>(<span class="kw">new</span> <span class="fn">Date</span>());
+  <span class="kw">const</span> d = Object.<span class="fn">fromEntries</span>(p.<span class="fn">map</span>(x => [x.type, x.value]));
+  <span class="kw">return new</span> <span class="fn">Date</span>(<span class="st">`${d.year}-${d.month}-${d.day}T00:00:00`</span>).<span class="fn">getTime</span>();
+}</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── PHASE 2 ── -->
+    <div class="phase-card phase-2">
+      <div class="phase-hdr">
+        <div class="phase-num">2</div>
+        <div class="phase-info">
+          <h2>⚡ Performance & UX</h2>
+          <p>Maximize speed and improve the quality of responses users actually see</p>
+        </div>
+        <div class="phase-tag">HIGH VALUE</div>
+      </div>
+      <div class="phase-body">
+
+        <!-- 2.1 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🚀 PERF</span>
+            <h3>2.1 — Fast Path Before LLM</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">🐛 Problem</div>
+              <div class="problem">
+                <strong>qwen2.5:14b on Ollama</strong> takes 3–8 seconds per request. But then <code style="font-family:monospace;font-size:11px">INT_Operational Guardrails</code> overrides the LLM result anyway using simple keyword matching. For common queries like "How many site down today?" — the LLM adds zero value.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">✅ Solution</div>
+              <div class="solution">
+                Add a <strong>keyword-first classifier</strong> node after <code style="font-family:monospace;font-size:11px">INT_Extract Message</code>. If it matches with high confidence → skip LLM. If ambiguous → fallback to LLM. Expected latency improvement: <strong>60–80% for common queries</strong>.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">💡 Architecture</div>
+              <div class="code-block"><span class="cm">// New: ROUTE_Fast Path (before LLM)</span>
+<span class="kw">const</span> FAST_RULES = [
+  { match: [<span class="st">'how many site down'</span>, <span class="st">'كم موقع واقع'</span>], intent: <span class="st">'site_down_count'</span> },
+  { match: [<span class="st">'power alarm'</span>, <span class="st">'باور الارم'</span>],        intent: <span class="st">'power_alarm_summary'</span> },
+  { match: [<span class="st">'tx alarm'</span>, <span class="st">'transport'</span>, <span class="st">'microwave'</span>], intent: <span class="st">'tx_alarm_summary'</span> },
+  ...
+];
+<span class="kw">const</span> hit = FAST_RULES.<span class="fn">find</span>(r => r.match.<span class="fn">some</span>(x => q.<span class="fn">includes</span>(x)));
+<span class="kw">if</span> (hit) <span class="kw">return</span> hit; <span class="cm">// skip LLM → directly to guardrails</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2.2 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🟡 UX</span>
+            <h3>2.2 — Better Empty-Result Messages</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">🐛 Problem</div>
+              <div class="problem">
+                When the API returns 0 records, the reply shows numbers as 0 with no explanation. User doesn't know <strong>if there really are no incidents, or if the query was wrong</strong>.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">✅ Solution</div>
+              <div class="solution">
+                Detect zero-result responses in <code style="font-family:monospace;font-size:11px">ENGINE_Format Reply</code> and generate a smart message with the applied filters.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">💡 Code</div>
+              <div class="code-block"><span class="kw">if</span> (j.physical_site_count === <span class="nu">0</span>) {
+  reply = <span class="st">`✅ No ${intent} incidents found.\n`</span>
+        + <span class="st">`Applied: ${JSON.stringify(j.filters)} \n`</span>
+        + <span class="st">`Time: ${j.time_range.start_local} → ${j.time_range.end_local}`</span>;
+}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2.3 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">📊 UX</span>
+            <h3>2.3 — Dashboard Auto-Population</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">🐛 Problem</div>
+              <div class="problem">
+                <code style="font-family:monospace;font-size:11px">dashboard_data</code> is only populated when the user writes "dashboard" in their question. Most users never know this keyword exists. Some intents have dashboard logic, others don't.
+              </div>
+            </div>
+            <div>
+              <div class="label-row">✅ Solution</div>
+              <div class="solution">
+                <strong>Always populate dashboard_data</strong> for every non-free-chat response.
+                Set <code style="font-family:monospace;font-size:11px">response_type = 'mixed'</code> always. Let the <strong>frontend decide</strong> whether to render the dashboard or not — it already has the logic for this.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── PHASE 3 ── -->
+    <div class="phase-card phase-3">
+      <div class="phase-hdr">
+        <div class="phase-num">3</div>
+        <div class="phase-info">
+          <h2>🌟 Product Polish</h2>
+          <p>Make the product feel mature, consistent, and ready for scale</p>
+        </div>
+        <div class="phase-tag">NICE TO HAVE</div>
+      </div>
+      <div class="phase-body">
+
+        <!-- 3.1 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🧠 PERF</span>
+            <h3>3.1 — Intent Caching (5-minute TTL)</h3>
+          </div>
+          <div class="item-body">
+            <div>
+              <div class="label-row">💡 Idea</div>
+              <div class="solution">
+                Cache the full response for each unique question hash for <strong>5 minutes</strong>. If the same query comes again → return instantly without LLM or API call. Implemented as an n8n Code node with a static Map or using Redis/KV store.
+              </div>
+            </div>
+            <div class="code-block"><span class="cm">// Static in-memory cache (per n8n process)</span>
+<span class="kw">const</span> cache = <span class="kw">global</span>.nocCache ??= <span class="kw">new</span> <span class="fn">Map</span>();
+<span class="kw">const</span> key = <span class="fn">hashQuestion</span>(chatInput);
+<span class="kw">const</span> hit = cache.<span class="fn">get</span>(key);
+<span class="kw">if</span> (hit && Date.now() - hit.ts < <span class="nu">300_000</span>) <span class="kw">return</span> [hit.result];</div>
+          </div>
+        </div>
+
+        <!-- 3.2 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🔧 DX</span>
+            <h3>3.2 — Free/Placeholder Unification Through Debug Node</h3>
+          </div>
+          <div class="item-body">
+            <div class="label-row">💡 Idea</div>
+            <div class="solution">
+              Currently <code style="font-family:monospace;font-size:11px">FREE_Format</code> and <code style="font-family:monospace;font-size:11px">PLACEHOLDER_Format</code> skip <code style="font-family:monospace;font-size:11px">OUT_Build Debug Response</code> and go directly to the webhook. Route all 3 paths through the Debug node for consistent debug output and a single exit point.
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.3 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">📋 DX</span>
+            <h3>3.3 — Node Naming Cleanup</h3>
+          </div>
+          <div class="item-body">
+            <div class="label-row">💡 Idea</div>
+            <div class="solution">
+              Enforce the prefix convention consistently across all nodes:
+            </div>
+            <div class="code-block"><span class="cm">Before                    →  After</span>
+<span class="st">"Basic LLM Chain"</span>         →  <span class="st">"LLM_Classify Intent"</span>
+<span class="st">"FREE_Format"</span>             →  <span class="st">"OUT_Free Format"</span>
+<span class="st">"PLACEHOLDER_Format"</span>      →  <span class="st">"OUT_Placeholder Format"</span>
+<span class="st">"ENGINE_Call Alarm API"</span>   →  <span class="st">"API_Call Alarm API"</span></div>
+          </div>
+        </div>
+
+        <!-- 3.4 -->
+        <div class="item">
+          <div class="item-hdr">
+            <span class="item-marker">🚀 UX</span>
+            <h3>3.4 — Streaming / Progressive Responses</h3>
+          </div>
+          <div class="item-body">
+            <div class="label-row">💡 Idea</div>
+            <div class="solution">
+              For aging queries (25 pages × API latency = up to 30s wait), send a <strong>confirmation message immediately</strong>, then stream progress updates, then the final result. Requires the frontend to support Server-Sent Events or WebSocket — a future enhancement.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Table -->
+  <div class="summary-section">
+    <div class="summary-hdr">
+      <h2>📋 Priority Matrix</h2>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Improvement</th>
+          <th>Priority</th>
+          <th>Effort (1-5)</th>
+          <th>Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>Centralize Guardrails (DRY)</td>
+          <td><span class="pri p1">🔴 Critical</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>🎯 Correctness</td>
+        </tr>
+        <tr>
+          <td>1</td><td>Pagination Error Handling</td>
+          <td><span class="pri p1">🔴 Critical</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>🎯 Data completeness</td>
+        </tr>
+        <tr>
+          <td>1</td><td>Safer Timezone Handling</td>
+          <td><span class="pri p2">🟠 High</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>🛡️ Reliability</td>
+        </tr>
+        <tr>
+          <td>2</td><td>Fast Path Before LLM</td>
+          <td><span class="pri p2">🚀 Perf</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>⚡ 60-80% faster</td>
+        </tr>
+        <tr>
+          <td>2</td><td>Better Empty-Result Messages</td>
+          <td><span class="pri p2">🟡 Medium</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>👤 UX clarity</td>
+        </tr>
+        <tr>
+          <td>2</td><td>Dashboard Auto-Population</td>
+          <td><span class="pri p2">🟡 Medium</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>📊 Richer UI</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Intent Caching</td>
+          <td><span class="pri p3">🟢 Low</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>⚡ Repeated queries</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Free/Placeholder Unification</td>
+          <td><span class="pri p3">🟢 Low</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>🔧 Code quality</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Node Naming Cleanup</td>
+          <td><span class="pri p3">🟢 Low</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td>
+          <td>🔧 Maintainability</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Streaming Responses</td>
+          <td><span class="pri p3">🟢 Future</span></td>
+          <td><div class="eff"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div></div></td>
+          <td>👤 UX for long queries</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TIP -->
+  <div class="tip-box">
+    <div class="tip-title">💡 Biggest Quick Win</div>
+    The <strong>Fast Path before LLM</strong> (Phase 2.1) gives the highest ROI with moderate effort.
+    Since <code style="font-family:monospace;font-size:11px">INT_Operational Guardrails</code> already overrides the LLM result via keywords,
+    adding a pre-LLM classifier that handles the <em>top 10 most common queries</em> would
+    reduce response time from <strong>5–10s → under 1s</strong> for the majority of NOC operator requests.
+  </div>
+
+</div>
+
+<footer>
+  NOC AI SQL Agent V3.8 · Analysis Report · Generated April 2026 ·
+  <span style="color:var(--red)">♥</span> NOC Operations Team
+</footer>
+
+</body>
+</html>
